@@ -44,12 +44,12 @@ describe('turnstile', () => {
 
     // Cloudflare says no.
     answer = { success: false }
-    const refused = await submit(app, form.slug, { 'cf-turnstile-response': 'token-1', name: 'Ana' }, { headers })
+    const refused = await submit(app, form.slug, { name: 'Ana', 'cf-turnstile-response': 'token-1' }, { headers })
     expect(refused).toEqual({ body: { message: 'Security check words.', ok: false }, status: 400 })
 
     // Cloudflare says yes.
     answer = { success: true }
-    const accepted = await submit(app, form.slug, { 'cf-turnstile-response': 'token-2', name: 'Ana' }, { headers })
+    const accepted = await submit(app, form.slug, { name: 'Ana', 'cf-turnstile-response': 'token-2' }, { headers })
     expect(accepted.status).toBe(200)
     expect(accepted.body.ok).toBe(true)
 
@@ -59,14 +59,14 @@ describe('turnstile', () => {
       expect(call.body).toMatchObject({ remoteip: '192.0.2.21', response: `token-${i + 1}`, secret: 'test-only-turnstile-secret' })
       expect(call.body.idempotency_key).toMatch(/^[0-9a-f-]{36}$/)
     }
-    expect(calls[0]!.body.idempotency_key).not.toBe(calls[1]!.body.idempotency_key)
+    expect(calls[0].body.idempotency_key).not.toBe(calls[1].body.idempotency_key)
   })
 
   test('missing secret refuses submissions and logs once', async () => {
     const form = await createForm(noSecret, { sections })
     const error = vi.spyOn(noSecret.payload.logger, 'error')
     for (let i = 0; i < 3; i += 1) {
-      const res = await submit(noSecret, form.slug, { 'cf-turnstile-response': 'token', name: 'Ana' }, { headers: { 'cf-connecting-ip': `192.0.2.3${i}` } })
+      const res = await submit(noSecret, form.slug, { name: 'Ana', 'cf-turnstile-response': 'token' }, { headers: { 'cf-connecting-ip': `192.0.2.3${i}` } })
       expect(res.status).toBe(400)
       expect(res.body.message).toBe('The security check failed. Please try again.')
     }

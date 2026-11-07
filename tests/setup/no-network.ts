@@ -5,12 +5,12 @@
 import http from 'node:http'
 import https from 'node:https'
 
-type Guarded = typeof globalThis & { __outsideRequests?: string[]; __realFetch?: typeof fetch }
+type Guarded = { __outsideRequests?: string[]; __realFetch?: typeof fetch } & typeof globalThis
 
 const g = globalThis as Guarded
 g.__outsideRequests = g.__outsideRequests || []
 
-const LOCAL = new Set(['127.0.0.1', '::1', '[::1]', 'localhost'])
+const LOCAL = new Set(['::1', '[::1]', '127.0.0.1', 'localhost'])
 
 export function isLocal(target: string): boolean {
   try {

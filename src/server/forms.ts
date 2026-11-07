@@ -50,7 +50,7 @@ export type LoadedForm = {
 
 type RawForm = {
   _status?: string
-  delivery?: Partial<FormDelivery> | null
+  delivery?: null | Partial<FormDelivery>
   id: number | string
   intakeState?: 'closed' | 'open' | null
   presentationMode?: 'singlePage' | 'steps' | null
@@ -59,7 +59,7 @@ type RawForm = {
   successRedirectURL?: null | string
   successType?: 'message' | 'redirect' | null
   title?: null | string
-  wording?: Record<string, null | string> | null
+  wording?: null | Record<string, null | string>
 }
 
 type Locale = 'all' | TypedLocale | undefined
@@ -95,7 +95,7 @@ async function resolveChoices(payload: Payload, options: ResolvedOptions, sectio
       if (!isInputBlock(field) || !isChoiceBlock(field)) {
         continue
       }
-      const block = field as InputBlock & { sourceItems?: unknown }
+      const block = field as { sourceItems?: unknown } & InputBlock
       const sourceKey = block.optionsFrom
       const source = sourceKey && sourceKey !== 'typed' ? sources[sourceKey] : undefined
       const picked = Array.isArray(block.sourceItems) ? block.sourceItems : []

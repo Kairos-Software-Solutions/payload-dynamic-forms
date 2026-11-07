@@ -11,10 +11,11 @@ export const testEmailAdapter: EmailAdapter<void> = () => ({
   name: 'recording-email-adapter',
   defaultFromAddress: 'forms@example.com',
   defaultFromName: 'Forms dev app',
-  sendEmail: async (message) => {
+  sendEmail: (message) => {
     if (emailControl.fail) {
-      throw new Error(emailControl.fail)
+      return Promise.reject(new Error(emailControl.fail))
     }
     outbox.push(message)
+    return Promise.resolve()
   },
 })

@@ -1,7 +1,7 @@
 import type { Block, Field } from 'payload'
 
-import type { FieldTypeDefinition, FormsPluginOptions, OptionSource } from '../types.js'
 import type { FieldTypeChecks } from '../shared/types.js'
+import type { FieldTypeDefinition, FormsPluginOptions, OptionSource } from '../types.js'
 
 import { ruleGroupField } from './ruleFields.js'
 
@@ -127,7 +127,7 @@ function choiceFields(sources: Record<string, OptionSource>): Field[] {
   if (!sourceKeys.length) {
     return [typedOptions]
   }
-  const collections = [...new Set(sourceKeys.map((key) => String(sources[key]!.collection)))]
+  const collections = [...new Set(sourceKeys.map((key) => String(sources[key].collection)))]
   return [
     {
       name: 'optionsFrom',
@@ -173,46 +173,14 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
     labels: { plural: `${singular} fields`, singular },
   })
   return {
-    heading: {
-      slug: 'heading',
-      fields: [
-        { name: 'heading', type: 'text', localized: true, required: true },
-        {
-          name: 'level',
-          type: 'select',
-          dbName: 'lvl',
-          defaultValue: 'h3',
-          options: ['h2', 'h3', 'h4'],
-        },
-      ],
-      labels: { plural: 'Headings', singular: 'Heading' },
-    },
-    helpText: {
-      slug: 'helpText',
-      fields: [{ name: 'body', type: 'textarea', localized: true, required: true }],
-      labels: { plural: 'Help texts', singular: 'Help text' },
-    },
-    text: input('text', 'Text', [lengthLimits()]),
-    email: input('email', 'Email', []),
-    textarea: input('textarea', 'Long text', [lengthLimits()]),
-    number: input('number', 'Number', [
-      {
-        type: 'row',
-        fields: [
-          { name: 'min', type: 'number', admin: { width: '50%' } },
-          { name: 'max', type: 'number', admin: { width: '50%' } },
-        ],
-      },
-    ]),
-    date: input('date', 'Date', [{ type: 'row', fields: [dateLimit('minDate', 'Earliest'), dateLimit('maxDate', 'Latest')] }]),
-    select: input('select', 'Select', choiceFields(ctx.sources)),
-    radio: input('radio', 'Radio', choiceFields(ctx.sources)),
     checkbox: input('checkbox', 'Checkbox', [], { name: 'defaultValue', type: 'checkbox', defaultValue: false }),
     checkboxGroup: input('checkboxGroup', 'Checkbox group', choiceFields(ctx.sources), {
       name: 'defaultValue',
       type: 'text',
       admin: { description: 'Values, separated by commas.' },
     }),
+    date: input('date', 'Date', [{ type: 'row', fields: [dateLimit('minDate', 'Earliest'), dateLimit('maxDate', 'Latest')] }]),
+    email: input('email', 'Email', []),
     fileUpload: input(
       'fileUpload',
       'File upload',
@@ -235,6 +203,38 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
       ],
       { name: 'defaultValue', type: 'text', admin: { hidden: true } },
     ),
+    heading: {
+      slug: 'heading',
+      fields: [
+        { name: 'heading', type: 'text', localized: true, required: true },
+        {
+          name: 'level',
+          type: 'select',
+          dbName: 'lvl',
+          defaultValue: 'h3',
+          options: ['h2', 'h3', 'h4'],
+        },
+      ],
+      labels: { plural: 'Headings', singular: 'Heading' },
+    },
+    helpText: {
+      slug: 'helpText',
+      fields: [{ name: 'body', type: 'textarea', localized: true, required: true }],
+      labels: { plural: 'Help texts', singular: 'Help text' },
+    },
+    number: input('number', 'Number', [
+      {
+        type: 'row',
+        fields: [
+          { name: 'min', type: 'number', admin: { width: '50%' } },
+          { name: 'max', type: 'number', admin: { width: '50%' } },
+        ],
+      },
+    ]),
+    radio: input('radio', 'Radio', choiceFields(ctx.sources)),
+    select: input('select', 'Select', choiceFields(ctx.sources)),
+    text: input('text', 'Text', [lengthLimits()]),
+    textarea: input('textarea', 'Long text', [lengthLimits()]),
   }
 }
 
@@ -280,7 +280,7 @@ function isDefinition(value: unknown): value is FieldTypeDefinition {
  */
 export function buildFieldBlocks(
   registry: FormsPluginOptions['fields'] = {},
-  ctx: BlockContext & { attachmentsOn: boolean },
+  ctx: { attachmentsOn: boolean } & BlockContext,
 ): { blocks: Block[]; fieldTypes: Record<string, FieldTypeChecks> } {
   const builtIns = builtInBlocks(ctx)
   const blocks: Block[] = []
@@ -300,7 +300,7 @@ export function buildFieldBlocks(
       fieldTypes[type] = { normalize: entry.normalize, toText: entry.toText, validate: entry.validate }
       continue
     }
-    blocks.push(isPlainObject(entry) ? deepMerge(builtIns[type]!, entry) : builtIns[type]!)
+    blocks.push(isPlainObject(entry) ? deepMerge(builtIns[type], entry) : builtIns[type])
   }
 
   for (const [type, entry] of Object.entries(registry)) {

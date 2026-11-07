@@ -7,9 +7,9 @@ describe('whatsapp', () => {
   test('topic-driven message has opener, answered rows and closer', () => {
     const form = topicForm()
     const answers = {
+      name: 'Ana',
       item: 'X100',
       link: '',
-      name: 'Ana',
       need: 'cameras',
       notes: 'Second hand is fine',
       'service-detail': 'left over from another choice',

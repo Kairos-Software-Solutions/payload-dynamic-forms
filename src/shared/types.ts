@@ -75,12 +75,12 @@ export type InputBlock = {
   defaultValue?: unknown
   fieldKey?: null | string
   id?: null | string
+  max?: null | number
+  maxDate?: null | string
   /** Files per field (file upload). */
   maxFiles?: null | number
   /** Largest file in MB (file upload). */
   maxFileSizeMB?: null | number
-  max?: null | number
-  maxDate?: null | string
   maxLength?: null | number
   /** Allowed MIME types (file upload); empty = the plugin's list. */
   mimeTypes?: null | string[]

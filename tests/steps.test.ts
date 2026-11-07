@@ -27,10 +27,10 @@ describe('steps', () => {
     expect(getStepPath(form, { budget: 5000 })).toEqual(['a', 'c', 'd'])
     expect(getStepPath(form, { budget: 500 })).toEqual(['a', 'b', 'c', 'd'])
     // A second matching rule after the first does not win.
-    form.sections![0]!.nextStepRules!.push({ rows: [{ fieldKey: 'budget', operator: 'hasValue' }], targetSectionKey: 'd' })
+    form.sections![0].nextStepRules!.push({ rows: [{ fieldKey: 'budget', operator: 'hasValue' }], targetSectionKey: 'd' })
     expect(getNextSectionKey(form, 'a', { budget: 5000 })).toBe('c')
     // A rule targeting a hidden section is passed over.
-    form.sections![2]!.visibilityRules = { rows: [{ fieldKey: 'budget', operator: 'lessThan', value: '0' }] }
+    form.sections![2].visibilityRules = { rows: [{ fieldKey: 'budget', operator: 'lessThan', value: '0' }] }
     expect(getNextSectionKey(form, 'a', { budget: 5000 })).toBe('d')
   })
 

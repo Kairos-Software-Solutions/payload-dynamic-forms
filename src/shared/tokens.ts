@@ -17,7 +17,7 @@ export type InterpolateOptions = {
   singleLine?: boolean
 }
 
-const TOKEN = /\{\{\s*(\*(?::table)?|[A-Za-z0-9_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)?)\s*\}\}/g
+const TOKEN = /\{\{\s*(\*(?::table)?|\w[\w-]*(?:\.[\w-]+)?)\s*\}\}/g
 
 export function escapeHtml(value: string): string {
   return value
@@ -82,7 +82,7 @@ export function buildMessageRows(
     if (!(key in shown) || !hasAnswer(shown[key])) {
       continue
     }
-    const value = answerToText(field, shown[key]!, fieldTypes)
+    const value = answerToText(field, shown[key], fieldTypes)
     if (!value.trim()) {
       continue
     }
@@ -121,7 +121,7 @@ export function buildTemplateValues(
     if (!(key in shown)) {
       continue
     }
-    values[key] = answerToText(field, shown[key]!, fieldTypes)
+    values[key] = answerToText(field, shown[key], fieldTypes)
     if (isChoiceBlock(field)) {
       for (const [name, attr] of Object.entries(chosenAttributes(field, shown[key]))) {
         values[`${key}.${name}`] = attr

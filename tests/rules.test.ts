@@ -7,8 +7,8 @@ import {
   getVisibility,
   initialAnswers,
   isFieldVisible,
-  type OperatorValue,
   OPERATORS,
+  type OperatorValue,
 } from '../src/exports/shared.js'
 import { input, topicForm } from './fixtures/forms.js'
 
@@ -69,8 +69,8 @@ describe('rule engine', () => {
     }
     const answers = { kind: 'a', plain: 'x', ruled: 'y' }
     const [, two] = form.sections!
-    expect(isFieldVisible(two!, two!.fields![0]!, answers, form)).toBe(false)
-    expect(isFieldVisible(two!, two!.fields![1]!, answers, form)).toBe(false)
+    expect(isFieldVisible(two, two.fields![0], answers, form)).toBe(false)
+    expect(isFieldVisible(two, two.fields![1], answers, form)).toBe(false)
     const visibility = getVisibility(form, answers)
     expect([...visibility.fieldKeys]).toEqual(['kind'])
     expect(visibility.answers).toEqual({ kind: 'a' })
@@ -91,7 +91,7 @@ describe('rule engine', () => {
 
   test('prefill uses listed values from the link', () => {
     const form = topicForm()
-    const need = form.sections![0]!.fields![1] as { defaultValue?: string }
+    const need = form.sections![0].fields![1] as { defaultValue?: string }
     need.defaultValue = 'tripods'
     expect(initialAnswers(form, new URLSearchParams('need=cameras')).need).toBe('cameras')
     expect(initialAnswers(form, '?need=unknown').need).toBe('tripods')

@@ -17,7 +17,7 @@ function nextFrom(
   index: number,
   answers: Answers,
 ): number {
-  const section = visible[index]!
+  const section = visible[index]
   for (const rule of (section.nextStepRules || []).filter(Boolean)) {
     if (!evaluateRules(rule, answers, form)) {
       continue
@@ -46,7 +46,7 @@ export function getStepPath(form: FormLike, answers: Answers): string[] {
   let index = 0
   while (index < visible.length && !seen.has(index)) {
     seen.add(index)
-    path.push(getSectionKey(visible[index]!))
+    path.push(getSectionKey(visible[index]))
     index = nextFrom(form, visible, index, answers)
   }
   return path

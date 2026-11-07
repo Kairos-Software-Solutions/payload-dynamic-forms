@@ -43,14 +43,14 @@ function findLoop(sections: FormSection[]): null | string[] {
   const edges = new Map<string, Set<string>>()
   keys.forEach((key, index) => {
     const out = new Set<string>()
-    for (const rule of sections[index]!.nextStepRules || []) {
+    for (const rule of sections[index].nextStepRules || []) {
       const target = normalizeKey(rule?.targetSectionKey)
       if (target && keys.includes(target)) {
         out.add(target)
       }
     }
     if (keys[index + 1]) {
-      out.add(keys[index + 1]!)
+      out.add(keys[index + 1])
     }
     edges.set(key, out)
   })
@@ -155,7 +155,7 @@ export function validateFormBeforeSave(options: ResolvedOptions): CollectionBefo
       checkRules(section.visibilityRules, `sections.${s}.visibilityRules`)
       ;(section.fields || []).forEach((field: FieldBlock, f) => {
         if (isInputBlock(field)) {
-          checkRules((field as InputBlock).visibilityRules, `sections.${s}.fields.${f}.visibilityRules`)
+          checkRules((field).visibilityRules, `sections.${s}.fields.${f}.visibilityRules`)
         }
       })
       ;(section.nextStepRules || []).forEach((rule, r) => {

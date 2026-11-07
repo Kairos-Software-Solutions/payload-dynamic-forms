@@ -1,6 +1,6 @@
 import type {
-  AnswerValue,
   Answers,
+  AnswerValue,
   ChoiceOption,
   FieldBlock,
   FormLike,
@@ -274,10 +274,10 @@ export function getVisibleSections(form: FormLike, answers: Answers): FormSectio
 }
 
 type SearchParamsLike =
+  | { get(name: string): null | string; getAll?(name: string): string[] }
   | Record<string, string | string[] | undefined>
   | string
   | URLSearchParams
-  | { get(name: string): null | string; getAll?(name: string): string[] }
 
 function readParam(params: SearchParamsLike | undefined, name: string): string[] {
   if (!params || !name) {
@@ -347,16 +347,16 @@ export function initialAnswers(form: FormLike, searchParams?: SearchParamsLike):
       if (!ok.length) {
         continue
       }
-      answers[key] = field.blockType === 'checkboxGroup' ? ok : ok[0]!
+      answers[key] = field.blockType === 'checkboxGroup' ? ok : ok[0]
       continue
     }
     if (field.blockType === 'checkbox') {
-      answers[key] = ['1', 'on', 'true', 'yes'].includes(raw[0]!.toLowerCase())
+      answers[key] = ['1', 'on', 'true', 'yes'].includes(raw[0].toLowerCase())
       continue
     }
     if (field.blockType === 'number') {
       const n = Number(raw[0])
-      answers[key] = Number.isFinite(n) ? n : raw[0]!
+      answers[key] = Number.isFinite(n) ? n : raw[0]
       continue
     }
     answers[key] = raw[0]!

@@ -6,7 +6,7 @@ const root = path.resolve(import.meta.dirname, '..')
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8')
 
 function headings(): string[] {
-  return [...readme.matchAll(/^#{2,3} (.+)$/gm)].map((m) => m[1]!.trim())
+  return [...readme.matchAll(/^#{2,3} (.+)$/gm)].map((m) => m[1].trim())
 }
 
 describe('README', () => {

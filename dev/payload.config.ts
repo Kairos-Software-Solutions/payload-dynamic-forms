@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildConfig, type Config, type PayloadRequest } from 'payload'
 
-import { type FormsPluginOptions, formsPlugin } from '../src/index.js'
+import { formsPlugin, type FormsPluginOptions } from '../src/index.js'
 import { testEmailAdapter } from './helpers/testEmailAdapter.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -13,7 +13,7 @@ type User = { role?: string }
 
 /** Options the dev app (and the tests) start the plugin with. */
 export const devPluginOptions: FormsPluginOptions = {
-  access: { isAdmin: (req: PayloadRequest) => (req.user as User | null)?.role === 'admin' },
+  access: { isAdmin: (req: PayloadRequest) => (req.user as null | User)?.role === 'admin' },
   fields: { fileUpload: true },
   optionSources: {
     topics: {
@@ -27,12 +27,12 @@ export const devPluginOptions: FormsPluginOptions = {
 }
 
 export type DevConfigArgs = {
+  /** Extra collections (e.g. an app upload collection). */
+  collections?: Config['collections']
   /** SQLite file (default: a fresh file in the OS temp folder). */
   dbFile?: string
   /** Plugin options merged over `devPluginOptions`. */
   plugin?: FormsPluginOptions
-  /** Extra collections (e.g. an app upload collection). */
-  collections?: Config['collections']
 }
 
 export function buildDevConfig(args: DevConfigArgs = {}) {

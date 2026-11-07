@@ -222,10 +222,10 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
       useAsTitle: 'title',
     },
     defaultPopulate: {
+      slug: true,
       intakeState: true,
       presentationMode: true,
       sections: true,
-      slug: true,
       successRedirectURL: true,
       successType: true,
       title: true,

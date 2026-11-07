@@ -2,10 +2,10 @@ import type { CollectionConfig, Config, PayloadRequest } from 'payload'
 
 import type { FormsPluginOptions, ResolvedOptions } from './types.js'
 
-import { applyOverrides } from './collections/overrides.js'
 import { attachmentLinkFields, attachmentsCollection } from './collections/attachments.js'
 import { buildFieldBlocks } from './collections/blocks.js'
 import { formsCollection } from './collections/forms.js'
+import { applyOverrides } from './collections/overrides.js'
 import { submissionsCollection } from './collections/submissions.js'
 import { publicFormEndpoint } from './endpoints/public.js'
 import { resendEndpoint } from './endpoints/resend.js'
@@ -32,7 +32,7 @@ export function resolveOptions(options: FormsPluginOptions = {}): ResolvedOption
           mimeTypes: [...(options.attachments?.mimeTypes ?? DEFAULT_FILE_LIMITS.mimeTypes)],
         }
   if (attachments && !attachments.createCollection) {
-    slugs.attachments = attachments.collection as typeof slugs.attachments
+    slugs.attachments = attachments.collection
   }
   return {
     attachments,
@@ -108,10 +108,9 @@ export const formsPlugin =
     }
   }
 
+export { signWebhookBody } from './delivery/webhook.js'
 export { formBlock, type FormBlockOptions } from './formBlock.js'
 export { getPublicForm, loadPublishedForm } from './server/forms.js'
-export { signWebhookBody } from './delivery/webhook.js'
-export type { CollectionOverride, FieldTypeDefinition, FormsPluginOptions, OptionSource, ResolvedOptions } from './types.js'
 export type {
   Answers,
   AnswerValue,
@@ -129,3 +128,4 @@ export type {
   SubmissionStatus,
   SubmitResult,
 } from './shared/types.js'
+export type { CollectionOverride, FieldTypeDefinition, FormsPluginOptions, OptionSource, ResolvedOptions } from './types.js'

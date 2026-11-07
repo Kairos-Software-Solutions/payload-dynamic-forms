@@ -104,7 +104,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
 
       const fileLikes: Record<string, FileLike[]> = {}
       for (const [key, list] of Object.entries(files)) {
-        fileLikes[key] = list.map((f) => ({ name: f.name, size: f.size, type: f.type }))
+        fileLikes[key] = list.map((f) => ({ name: f.name, type: f.type, size: f.size }))
       }
       const checked = checkAnswers(form, raw, {
         fieldTypes: options.fieldTypes,
@@ -144,7 +144,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
         const attachmentSlug = options.attachments?.collection
         try {
           for (const { field, key } of visibleUploads) {
-            for (const file of files[key]!) {
+            for (const file of files[key]) {
               const doc = await payload.create({
                 collection: attachmentSlug as never,
                 data: { fieldKey: key, fieldLabel: getFieldLabel(field, key), form: form.id } as never,

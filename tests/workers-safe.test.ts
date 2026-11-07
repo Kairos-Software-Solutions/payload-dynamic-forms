@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
 import { describe, expect, test } from 'vitest'
 
 const root = path.resolve(import.meta.dirname, '..')
@@ -10,29 +11,42 @@ function filesUnder(dir: string): string[] {
     if (entry.isDirectory()) {
       return filesUnder(full)
     }
-    return /\.(ts|tsx)$/.test(entry.name) ? [full] : []
+    return /\.tsx?$/.test(entry.name) ? [full] : []
   })
 }
 
-/** Runtime import specifiers (type-only imports and exports are left out). */
+/** Runtime import specifiers (type-only imports and exports are left out), read with the TS parser. */
 function runtimeImports(source: string): string[] {
+  const file = ts.createSourceFile('x.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const out: string[] = []
-  const re = /(?:^|\n)\s*(import|export)\s+(type\s+)?([^'"]*?)\s*from\s*['"]([^'"]+)['"]|(?:^|\n)\s*import\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g
-  for (const m of source.matchAll(re)) {
-    if (m[5] || m[6]) {
-      out.push((m[5] || m[6])!)
-      continue
+  const visit = (node: ts.Node) => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      const clause = node.importClause
+      const named = clause?.namedBindings
+      const typeOnly =
+        clause?.isTypeOnly ||
+        (clause && !clause.name && named && ts.isNamedImports(named) && named.elements.every((e) => e.isTypeOnly))
+      if (!typeOnly) {
+        out.push(node.moduleSpecifier.text)
+      }
+    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      const named = node.exportClause
+      const typeOnly = node.isTypeOnly || (named && ts.isNamedExports(named) && named.elements.every((e) => e.isTypeOnly))
+      if (!typeOnly) {
+        out.push(node.moduleSpecifier.text)
+      }
+    } else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === 'require')) &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      out.push(node.arguments[0].text)
     }
-    if (m[2]) {
-      continue
-    }
-    const clause = m[3] || ''
-    const braces = clause.match(/^\{([\s\S]*)\}$/)
-    if (braces && braces[1]!.split(',').every((part) => !part.trim() || /^type\s/.test(part.trim()))) {
-      continue
-    }
-    out.push(m[4]!)
+    ts.forEachChild(node, visit)
   }
+  visit(file)
   return out
 }
 
@@ -78,10 +92,8 @@ describe('workers safety', () => {
           bad.push(`${path.relative(root, file)}: import ${spec}`)
         }
       }
-      for (const pattern of [/\brequire\(\s*['"](?:node:)?(fs|path|child_process)['"]/, /\bprocess\.cwd\s*\(/, /\bfrom\s+['"](?:node:)?(fs|path|child_process)(?:\/[^'"]*)?['"]/]) {
-        if (pattern.test(source)) {
-          bad.push(`${path.relative(root, file)}: ${pattern}`)
-        }
+      if (source.includes('process.cwd')) {
+        bad.push(`${path.relative(root, file)}: process.cwd`)
       }
     }
     expect(bad).toEqual([])

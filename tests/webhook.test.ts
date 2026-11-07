@@ -55,13 +55,13 @@ describe('webhooks', () => {
     )
     expect(result).toEqual({ ok: true, status: 204, tries: 1 })
     const [call] = calls
-    expect(call!.url).toBe('https://hooks.example.com/in')
-    expect(call!.init.method).toBe('PUT')
-    expect(call!.headers.get('x-api-key')).toBe('header-value')
-    expect(call!.headers.get('content-type')).toBe('application/json')
-    const body = String(call!.init.body)
+    expect(call.url).toBe('https://hooks.example.com/in')
+    expect(call.init.method).toBe('PUT')
+    expect(call.headers.get('x-api-key')).toBe('header-value')
+    expect(call.headers.get('content-type')).toBe('application/json')
+    const body = String(call.init.body)
     expect(JSON.parse(body)).toEqual({ answers: { name: 'Ana' } })
-    const signature = call!.headers.get('x-form-signature')!
+    const signature = call.headers.get('x-form-signature')!
     const match = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(signature)
     expect(match).not.toBeNull()
     const t = Number(match![1])
@@ -80,14 +80,14 @@ describe('webhooks', () => {
     expect(ok).toMatchObject({ kind: 'webhook', label: 'CRM', outputId: 'hook-1', result: 'success', tries: 3 })
     expect(calls).toHaveLength(3)
     // Growing pauses: 0.5 s, then 1 s.
-    expect([calls[1]!.at - calls[0]!.at, calls[2]!.at - calls[1]!.at]).toEqual([500, 1000])
+    expect([calls[1].at - calls[0].at, calls[2].at - calls[1].at]).toEqual([500, 1000])
 
     const failing = stubFetch(() => new Response(null, { status: 503 }))
     const second = deliver({ id: 'hook-2', label: 'Backup', retries: 2, url: 'https://hooks.example.com/backup' })
     await vi.runAllTimersAsync()
     const [failed] = await second
     expect(failed).toMatchObject({ label: 'Backup', result: 'failed', tries: 3 })
-    expect(failed!.error).toContain('503')
+    expect(failed.error).toContain('503')
     expect(failing).toHaveLength(3)
   })
 
@@ -108,6 +108,6 @@ describe('webhooks', () => {
     const [entry] = await pending
     expect(signal?.aborted).toBe(true)
     expect(entry).toMatchObject({ result: 'failed', tries: 1 })
-    expect(entry!.error).toMatch(/timed out after 1000 ms/)
+    expect(entry.error).toMatch(/timed out after 1000 ms/)
   })
 })

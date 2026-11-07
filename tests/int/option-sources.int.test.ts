@@ -19,12 +19,12 @@ async function topic(label: string, fieldSet: 'item' | 'service', publish = true
   return app.payload.create({
     collection: 'topics' as never,
     data: {
+      slug: `${label.toLowerCase().replace(/\s+/g, '-')}-${n}`,
       _status: publish ? 'published' : 'draft',
       closer: `Closer ${label}`,
       fieldSet,
       label,
       opener: `Opener ${label}`,
-      slug: `${label.toLowerCase().replace(/\s+/g, '-')}-${n}`,
     } as never,
     draft: !publish,
     overrideAccess: true,
@@ -43,7 +43,7 @@ async function radioForm(sourceItems: Array<{ id: number }>) {
     ],
   })
   const pub = await getPublicForm(app.payload, form.slug)
-  return pub!.sections[0]!.fields![0] as { options: Array<{ attributes: Record<string, unknown>; label: string; value: string }> }
+  return pub!.sections[0].fields![0] as { options: Array<{ attributes: Record<string, unknown>; label: string; value: string }> }
 }
 
 describe('option sources', () => {
@@ -94,7 +94,7 @@ describe('option sources', () => {
     })
     await app.payload.delete({ id: remove.id, collection: 'topics' as never, overrideAccess: true })
     const pub = await getPublicForm(app.payload, form.slug)
-    const needs = pub!.sections[0]!.fields![0] as { options: Array<{ label: string }> }
+    const needs = pub!.sections[0].fields![0] as { options: Array<{ label: string }> }
     expect(needs.options.map((o) => o.label)).toEqual(['Bags'])
   })
 })

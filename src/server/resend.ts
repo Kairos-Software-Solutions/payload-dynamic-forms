@@ -9,7 +9,7 @@ export type SubmissionDoc = {
   answers?: Answers | null
   attachments?: Array<{ id: number | string } | number | string> | null
   deliveryLog?: LogEntry[] | null
-  form?: { id: number | string } | number | string | null
+  form?: { id: number | string } | null | number | string
   id: number | string
   metadata?: { locale?: null | string } | null
   snapshot?: null | SnapshotRow[]
@@ -26,7 +26,7 @@ export async function resendFailedDeliveries(
 ): Promise<{ added: LogEntry[]; log: LogEntry[]; status: SubmissionStatus }> {
   const options = getPluginOptions(payload)
   const log = (submission.deliveryLog || []).map((entry) => {
-    const { id: _id, ...rest } = entry as LogEntry & { id?: string }
+    const { id: _id, ...rest } = entry as { id?: string } & LogEntry
     return rest as LogEntry
   })
   const formId = typeof submission.form === 'object' && submission.form ? submission.form.id : submission.form

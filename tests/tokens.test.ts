@@ -26,7 +26,7 @@ describe('tokens', () => {
         },
       ],
     }
-    const answers = { company: '', message: '<script>alert(1)</script>', more: false, name: 'Ana', secret: 'should not show' }
+    const answers = { name: 'Ana', company: '', message: '<script>alert(1)</script>', more: false, secret: 'should not show' }
     const rows = buildMessageRows(form, answers)
     expect(rows.map((r) => r.label)).toEqual(['Name', 'Message'])
     expect(interpolate('{{*}}', {}, { rows })).toBe('Name: Ana\nMessage: <script>alert(1)</script>')

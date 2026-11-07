@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { runDeliveries } from '../../src/delivery/run.js'
-import { getPublicForm, loadPublishedForm } from '../../src/index.js'
 import { buildWhatsAppMessage, whatsappUrl } from '../../src/exports/shared.js'
+import { getPublicForm, loadPublishedForm } from '../../src/index.js'
 import { getPluginOptions } from '../../src/server/forms.js'
 import {
   type App,
@@ -83,12 +83,12 @@ async function topicSetup(target: App, whatsapp: Record<string, unknown>) {
       await target.payload.create({
         collection: 'topics' as never,
         data: {
+          slug: `${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
           _status: 'published',
           closer: `Thanks for asking about ${label.toLowerCase()}.`,
           fieldSet,
           label,
           opener: `Hello! A question about ${label.toLowerCase()}.`,
-          slug: `${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
         } as never,
         overrideAccess: true,
       }),
@@ -116,7 +116,7 @@ describe('delivery', () => {
   test('store off sends but writes no records', async () => {
     const form = await createForm(app, { delivery: { emails: [team], store: false }, sections: contact })
     const subsBefore = await countDocs(app, 'custom-form-submissions')
-    const { body, status } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana', 'project-type': 'web' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com', 'project-type': 'web' })
     expect(status).toBe(200)
     expect(body).not.toHaveProperty('submissionId')
     expect(outbox).toHaveLength(1)
@@ -127,12 +127,12 @@ describe('delivery', () => {
   test('team email is sent through payload.sendEmail', async () => {
     const form = await createForm(app, { delivery: { emails: [team] }, sections: contact })
     const send = vi.spyOn(app.payload, 'sendEmail')
-    await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana', 'project-type': 'web' })
+    await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com', 'project-type': 'web' })
     expect(send).toHaveBeenCalledTimes(1)
     send.mockRestore()
     expect(outbox).toHaveLength(1)
     expect(outbox[0]).toMatchObject({ subject: 'New Website', to: 'team@example.com' })
-    expect(outbox[0]!.text).toBe('Name: Ana\nEmail: ana@example.com\nProject type: Website')
+    expect(outbox[0].text).toBe('Name: Ana\nEmail: ana@example.com\nProject type: Website')
   })
 
   test('visitor copy sends only to one valid address', async () => {
@@ -140,7 +140,7 @@ describe('delivery', () => {
       delivery: { emails: [{ body: 'Thanks {{name}}', kind: 'visitor', label: 'Copy', subject: 'Your message', visitorField: 'email' }] },
       sections: contact,
     })
-    const ok = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const ok = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(ok.status).toBe(200)
     expect(outbox.map((m) => m.to)).toEqual(['ana@example.com'])
     outbox.length = 0
@@ -148,7 +148,7 @@ describe('delivery', () => {
     // Bypassing the field checks: the delivery itself refuses a list of addresses.
     const loaded = (await loadPublishedForm(app.payload, form.slug))!
     const entries = await runDeliveries({
-      answers: { email: 'a@b.com, c@d.com', name: 'Ana' },
+      answers: { name: 'Ana', email: 'a@b.com, c@d.com' },
       delivery: loaded.delivery,
       form: loaded.form,
       options: getPluginOptions(app.payload),
@@ -159,20 +159,20 @@ describe('delivery', () => {
     expect(outbox).toHaveLength(0)
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({ kind: 'email', label: 'Copy', result: 'failed' })
-    expect(entries[0]!.error).toContain('a@b.com, c@d.com')
+    expect(entries[0].error).toContain('a@b.com, c@d.com')
   })
 
   test('beforeEmail changes the message', async () => {
     const form = await createForm(appHooks, { delivery: { emails: [{ ...team, body: '{{*:table}}' }] }, sections: contact })
-    await submit(appHooks, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    await submit(appHooks, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(outbox).toHaveLength(1)
-    expect(String(outbox[0]!.html)).toMatch(/^<div class="layout"><table>/)
+    expect(String(outbox[0].html)).toMatch(/^<div class="layout"><table>/)
   })
 
   test('failed email keeps the submission and logs the error', async () => {
     const form = await createForm(app, { delivery: { emails: [team] }, sections: contact, wording: { success: 'Thanks!' } })
     emailControl.fail = 'Mail server unavailable'
-    const { body, status } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(status).toBe(200)
     expect(body.message).toBe('Thanks!')
     const sub = await readSubmission(app, body.submissionId)
@@ -183,7 +183,7 @@ describe('delivery', () => {
 
   test('whatsapp endpoint url matches the helper and stores nothing', async () => {
     const { form, topics } = await topicSetup(app, { number: '+1 (555) 000-1234' })
-    const answers = { item: 'X100', link: '', name: 'Ana', need: topics[0]!.slug }
+    const answers = { name: 'Ana', item: 'X100', link: '', need: topics[0].slug }
     const keysBefore = (await app.payload.kv.keys()).length
     const subsBefore = await countDocs(app, 'custom-form-submissions')
     const filesBefore = await countDocs(app, 'custom-form-attachments')
@@ -207,13 +207,13 @@ describe('delivery', () => {
 
   test('whatsapp number falls back to the resolver', async () => {
     const { form, topics } = await topicSetup(appHooks, { number: '' })
-    const { body } = await submit(appHooks, form.slug, { job: 'Clean it', name: 'Ana', need: topics[1]!.slug })
+    const { body } = await submit(appHooks, form.slug, { name: 'Ana', job: 'Clean it', need: topics[1].slug })
     expect(body.whatsappUrl).toMatch(/^https:\/\/wa\.me\/15550001234\?text=Hello!%20A%20question%20about%20lens%20cleaning/)
 
     // No number on the form and no resolver: generic words and one log line.
     const none = await topicSetup(app, { number: '' })
     const error = vi.spyOn(app.payload.logger, 'error')
-    const res = await submit(app, none.form.slug, { item: 'X', name: 'Ana', need: none.topics[0]!.slug })
+    const res = await submit(app, none.form.slug, { name: 'Ana', item: 'X', need: none.topics[0].slug })
     expect(res).toEqual({ body: { message: 'Something went wrong. Please try again.', ok: false }, status: 500 })
     expect(error.mock.calls.filter((c) => JSON.stringify(c).includes('WhatsApp'))).toHaveLength(1)
     error.mockRestore()
@@ -222,12 +222,12 @@ describe('delivery', () => {
   test('scheduled delivery runs after the response', async () => {
     const form = await createForm(appSched, { delivery: { emails: [team] }, sections: contact })
     scheduled.length = 0
-    const { body, status } = await submit(appSched, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body, status } = await submit(appSched, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(status).toBe(200)
     expect(outbox).toHaveLength(0)
     expect((await readSubmission(appSched, body.submissionId)).status).toBe('received')
     expect(scheduled).toHaveLength(1)
-    await scheduled[0]!()
+    await scheduled[0]()
     expect(outbox).toHaveLength(1)
     const sub = await readSubmission(appSched, body.submissionId)
     expect(sub.status).toBe('processed')
@@ -242,7 +242,7 @@ describe('delivery', () => {
   test('status follows the delivery log', async () => {
     const form = await createForm(app, { delivery: withHook, sections: contact })
     hookStatus = 500
-    const { body } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     const sub = await readSubmission(app, body.submissionId)
     expect(sub.status).toBe('partlyFailed')
     expect(sub.deliveryLog.map((e: Doc) => `${e.kind}:${e.label}:${e.result}`)).toEqual(['email:Team:success', 'webhook:CRM:failed'])
@@ -252,7 +252,7 @@ describe('delivery', () => {
   test('resend runs only failed outputs and updates status', async () => {
     const form = await createForm(app, { delivery: withHook, sections: contact })
     hookStatus = 500
-    const { body } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     outbox.length = 0
     hookCalls.length = 0
     hookStatus = 200
@@ -269,7 +269,7 @@ describe('delivery', () => {
   test('sidebar tick resends and clears itself', async () => {
     const form = await createForm(app, { delivery: withHook, sections: contact })
     hookStatus = 500
-    const { body } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     hookCalls.length = 0
     hookStatus = 200
     const res = await app.fetch(`/custom-form-submissions/${body.submissionId}`, {
@@ -288,7 +288,7 @@ describe('delivery', () => {
   test('resend refuses non-admins', async () => {
     const form = await createForm(app, { delivery: withHook, sections: contact })
     hookStatus = 500
-    const { body } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     hookCalls.length = 0
     outbox.length = 0
     hookStatus = 200

@@ -33,6 +33,8 @@ export type OptionSource = {
 export type FormsPluginOptions = {
   /** Who may read and write webhook secrets, update or delete submissions and resend. Default: any logged-in user. */
   access?: { isAdmin?: (req: PayloadRequest) => boolean }
+  /** Overrides for the attachments collection (when the plugin creates it). */
+  attachmentOverrides?: CollectionOverride
   /** Private uploads for file fields. `false`: no attachments collection (file uploads can't be turned on). */
   attachments?:
     | {
@@ -46,8 +48,6 @@ export type FormsPluginOptions = {
         mimeTypes?: string[]
       }
     | false
-  /** Overrides for the attachments collection (when the plugin creates it). */
-  attachmentOverrides?: CollectionOverride
   /** Gets each email before it is sent (wrap it in a layout, add headers…) and returns the one to send. */
   beforeEmail?: (
     message: SendEmailOptions,

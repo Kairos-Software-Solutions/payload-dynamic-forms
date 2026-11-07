@@ -35,7 +35,7 @@ export async function sendWebhook(settings: WebhookSettings, body: unknown): Pro
   let tries = 0
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     if (attempt > 0) {
-      await sleep(RETRY_PAUSES_MS[Math.min(attempt - 1, RETRY_PAUSES_MS.length - 1)]!)
+      await sleep(RETRY_PAUSES_MS[Math.min(attempt - 1, RETRY_PAUSES_MS.length - 1)])
     }
     tries += 1
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }

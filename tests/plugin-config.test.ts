@@ -2,8 +2,8 @@ import type { Block, CollectionConfig, Config, Field } from 'payload'
 
 import { describe, expect, test, vi } from 'vitest'
 
-import { formBlock, formsPlugin } from '../src/index.js'
 import { OPERATORS } from '../src/exports/shared.js'
+import { formBlock, formsPlugin } from '../src/index.js'
 
 function baseConfig(): Config {
   return {
@@ -32,7 +32,7 @@ function walk(fields: Field[], visit: (field: Field, path: string) => void, pref
         walk(tab.fields, visit, 'name' in tab && tab.name ? `${path}.${tab.name}` : path)
       }
     } else if (field.type === 'blocks') {
-      for (const block of field.blocks as Block[]) {
+      for (const block of field.blocks) {
         walk(block.fields, visit, `${path}.${block.slug}`)
       }
     } else if ('fields' in field && Array.isArray(field.fields)) {
@@ -45,7 +45,7 @@ function sectionBlocks(config: Config, slug = 'custom-forms'): Block[] {
   let blocks: Block[] = []
   walk(collection(config, slug).fields, (field, path) => {
     if (field.type === 'blocks' && path === 'sections.fields') {
-      blocks = field.blocks as Block[]
+      blocks = field.blocks
     }
   })
   return blocks

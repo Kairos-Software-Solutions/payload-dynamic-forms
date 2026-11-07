@@ -1,6 +1,6 @@
 import type {
-  AnswerValue,
   Answers,
+  AnswerValue,
   FieldTypeChecks,
   FileLike,
   FormLike,
@@ -51,7 +51,7 @@ export function isValidEmail(value: unknown): boolean {
   if (typeof value !== 'string') {
     return false
   }
-  return /^[^\s@,;<>()"'[\]\\]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(
+  return /^[^\s@,;<>()"'[\]\\]+@[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?)+$/i.test(
     value.trim(),
   )
 }
@@ -327,7 +327,7 @@ export function buildSnapshot(
       label: getFieldLabel(field, key),
       sectionKey: getSectionKey(section),
       sectionTitle: section.title?.trim() || getSectionKey(section),
-      value: answerToText(field, answers[key]!, fieldTypes),
+      value: answerToText(field, answers[key], fieldTypes),
     })
   }
   return rows

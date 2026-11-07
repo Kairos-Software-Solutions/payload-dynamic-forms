@@ -2,15 +2,15 @@ import type { Payload, SanitizedConfig } from 'payload'
 
 import { getPayload, handleEndpoints } from 'payload'
 
-import { buildDevConfig, type DevConfigArgs } from '../../dev/payload.config.js'
 import { emailControl, outbox } from '../../dev/helpers/testEmailAdapter.js'
+import { buildDevConfig, type DevConfigArgs } from '../../dev/payload.config.js'
 
 export { emailControl, outbox }
 
 export type App = {
   config: SanitizedConfig
   /** Calls the REST API like a browser would (custom endpoints included). */
-  fetch: (path: string, init?: RequestInit & { json?: unknown; token?: string }) => Promise<Response>
+  fetch: (path: string, init?: { json?: unknown; token?: string } & RequestInit) => Promise<Response>
   key: string
   payload: Payload
 }
@@ -56,7 +56,7 @@ export async function login(app: App, role: 'admin' | 'editor'): Promise<string>
   return result.token!
 }
 
-type FieldSpec = Record<string, unknown> & { blockType: string; fieldKey?: string; label?: string }
+type FieldSpec = { blockType: string; fieldKey?: string; label?: string } & Record<string, unknown>
 
 /** A field block with its label in the words group. */
 export function field(blockType: string, fieldKey: string, extra: Record<string, unknown> = {}): FieldSpec {
@@ -65,7 +65,7 @@ export function field(blockType: string, fieldKey: string, extra: Record<string,
 }
 
 export function section(key: string, fields: FieldSpec[], extra: Record<string, unknown> = {}) {
-  return { key, title: `Section ${key}`, fields, ...extra }
+  return { fields, key, title: `Section ${key}`, ...extra }
 }
 
 let slugCounter = 0
@@ -73,7 +73,7 @@ let slugCounter = 0
 /** Creates (and by default publishes) a form with the Local API as a trusted setup step. */
 export async function createForm(
   app: App,
-  data: Record<string, unknown> & { sections: unknown[] },
+  data: { sections: unknown[] } & Record<string, unknown>,
   { draft = false } = {},
 ): Promise<{ id: number | string; slug: string } & Record<string, unknown>> {
   slugCounter += 1
@@ -81,10 +81,10 @@ export async function createForm(
   const doc = await app.payload.create({
     collection: 'custom-forms',
     data: {
-      title: data.title || `Form ${slugCounter}`,
-      generateSlug: false,
       slug,
       _status: draft ? 'draft' : 'published',
+      generateSlug: false,
+      title: data.title || `Form ${slugCounter}`,
       ...data,
     } as never,
     draft,

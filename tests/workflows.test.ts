@@ -47,16 +47,16 @@ describe('workflows', () => {
     expect(publish.permissions).toEqual({ contents: 'read', 'id-token': 'write' })
     const jobs = Object.values(publish.jobs)
     expect(jobs).toHaveLength(1)
-    expect(jobs[0]!.environment).toBe('npm')
+    expect(jobs[0].environment).toBe('npm')
     checks(publish)
-    const steps = jobs[0]!.steps
+    const steps = jobs[0].steps
     const publishIndex = steps.findIndex((s) => s.run?.includes('npm publish'))
     const tagIndex = steps.findIndex((s) => s.run?.includes('GITHUB_REF_NAME') && s.run.includes('package.json'))
     expect(publishIndex).toBeGreaterThan(-1)
     expect(tagIndex).toBeGreaterThan(-1)
     expect(tagIndex).toBeLessThan(publishIndex)
-    expect(steps[publishIndex]!.run).toContain('npm publish --access public --provenance')
-    expect(steps[publishIndex]!.env).toEqual({ NODE_AUTH_TOKEN: '${{ secrets.NPM_TOKEN }}' })
+    expect(steps[publishIndex].run).toContain('npm publish --access public --provenance')
+    expect(steps[publishIndex].env).toEqual({ NODE_AUTH_TOKEN: '${{ secrets.NPM_TOKEN }}' })
     // The token reaches the publish step only.
     expect(text.match(/secrets\.NPM_TOKEN/g)).toHaveLength(1)
     expect(text.match(/secrets\./g)).toHaveLength(1)

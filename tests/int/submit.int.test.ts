@@ -48,7 +48,7 @@ describe('public read', () => {
   test('public read resolves choices and words and hides delivery', async () => {
     const topic = await app.payload.create({
       collection: 'topics' as never,
-      data: { _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Cameras', opener: 'Hi!', slug: 'cameras' } as never,
+      data: { slug: 'cameras', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Cameras', opener: 'Hi!' } as never,
       overrideAccess: true,
     })
     const form = await createForm(app, {
@@ -88,11 +88,11 @@ describe('public read', () => {
 describe('submit', () => {
   test('valid answers are stored and answered with success words', async () => {
     const form = await createForm(app, { sections: contactSections, wording: { success: 'Got it, thanks.' } })
-    const { body, status } = await submit(app, form.slug, { email: 'ana@example.com', message: 'Hello', name: 'Ana' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com', message: 'Hello' })
     expect(status).toBe(200)
     expect(body).toEqual({ message: 'Got it, thanks.', ok: true, submissionId: expect.anything() })
     const sub = (await app.payload.findByID({ id: body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
-    expect(sub.answers).toEqual({ email: 'ana@example.com', message: 'Hello', name: 'Ana' })
+    expect(sub.answers).toEqual({ name: 'Ana', email: 'ana@example.com', message: 'Hello' })
     expect(sub.status).toBe('processed')
     expect(sub.snapshot.map((r: { label: string; value: string }) => `${r.label}=${r.value}`)).toEqual(['Name=Ana', 'Email=ana@example.com', 'Message=Hello'])
   })
@@ -104,10 +104,10 @@ describe('submit', () => {
     })
     const before = await countDocs(app, 'custom-form-submissions')
     outbox.length = 0
-    const { body, status } = await submit(app, form.slug, { email: 'not-an-email', name: '' })
+    const { body, status } = await submit(app, form.slug, { name: '', email: 'not-an-email' })
     expect(status).toBe(400)
     expect(body).toEqual({
-      fieldErrors: { email: 'That email does not look right.', name: 'Tell us your name.' },
+      fieldErrors: { name: 'Tell us your name.', email: 'That email does not look right.' },
       message: DEFAULT_WORDS.errorPrefix,
       ok: false,
     })
@@ -137,7 +137,7 @@ describe('submit', () => {
   test('closed form answers 409 with its words', async () => {
     const form = await createForm(app, { intakeState: 'closed', sections: contactSections, wording: { closed: 'We are on holiday.' } })
     const before = await countDocs(app, 'custom-form-submissions')
-    const { body, status } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(status).toBe(409)
     expect(body).toEqual({ message: 'We are on holiday.', ok: false })
     expect(await countDocs(app, 'custom-form-submissions')).toBe(before)
@@ -145,14 +145,14 @@ describe('submit', () => {
 
   test('redirect success returns the URL', async () => {
     const form = await createForm(app, { sections: contactSections, successRedirectURL: '/thanks', successType: 'redirect' })
-    const { body, status } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     expect(status).toBe(200)
     expect(body.redirectURL).toBe('/thanks')
   })
 
   test('snapshot keeps the label used at submission', async () => {
     const form = await createForm(app, { sections: contactSections })
-    const { body } = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' })
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     const doc = (await app.payload.findByID({ id: form.id, collection: 'custom-forms' as never, depth: 0, overrideAccess: true })) as Record<string, any>
     doc.sections[0].fields[0].words.label = 'Full name'
     await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
@@ -164,8 +164,8 @@ describe('submit', () => {
     const headers = { 'cf-connecting-ip': '192.0.2.44', 'user-agent': 'forms-test-agent' }
     const plain = await createForm(app, { sections: contactSections })
     const withIp = await createForm(appIp, { sections: contactSections })
-    const a = await submit(app, plain.slug, { email: 'ana@example.com', name: 'Ana' }, { headers })
-    const b = await submit(appIp, withIp.slug, { email: 'ana@example.com', name: 'Ana' }, { headers })
+    const a = await submit(app, plain.slug, { name: 'Ana', email: 'ana@example.com' }, { headers })
+    const b = await submit(appIp, withIp.slug, { name: 'Ana', email: 'ana@example.com' }, { headers })
     const subA = (await app.payload.findByID({ id: a.body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
     const subB = (await appIp.payload.findByID({ id: b.body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
     expect(subA.metadata.ip ?? null).toBeNull()
@@ -192,7 +192,7 @@ describe('submit', () => {
     })
     outbox.length = 0
     const before = await countDocs(app, 'custom-form-submissions')
-    const { body, status } = await submit(app, form.slug, { _hp: 'http://spam.example', email: 'ana@example.com', name: 'Ana' })
+    const { body, status } = await submit(app, form.slug, { name: 'Ana', _hp: 'http://spam.example', email: 'ana@example.com' })
     expect(status).toBe(400)
     expect(body).toEqual({ message: 'Marker generic.', ok: false })
     expect(await countDocs(app, 'custom-form-submissions')).toBe(before)
@@ -219,18 +219,18 @@ describe('submit', () => {
     const form = await createForm(app, { sections: contactSections, wording: { tooManyTries: 'Slow down.' } })
     const headers = { 'cf-connecting-ip': '192.0.2.77' }
     for (let i = 0; i < 5; i += 1) {
-      expect((await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' }, { headers })).status).toBe(200)
+      expect((await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { headers })).status).toBe(200)
     }
-    const sixth = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' }, { headers })
+    const sixth = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { headers })
     expect(sixth.status).toBe(429)
     expect(sixth.body).toEqual({ message: 'Slow down.', ok: false })
-    const other = await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' }, { headers: { 'cf-connecting-ip': '192.0.2.78' } })
+    const other = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { headers: { 'cf-connecting-ip': '192.0.2.78' } })
     expect(other.status).toBe(200)
   })
 
   test('rate limit keys hold a hash, not the IP', async () => {
     const form = await createForm(app, { sections: contactSections })
-    await submit(app, form.slug, { email: 'ana@example.com', name: 'Ana' }, { headers: { 'cf-connecting-ip': '203.0.113.7' } })
+    await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { headers: { 'cf-connecting-ip': '203.0.113.7' } })
     const keys = await app.payload.kv.keys()
     const mine = keys.filter((k) => k.startsWith(`forms:rl:${form.id}:`))
     expect(mine).toHaveLength(1)
@@ -265,27 +265,27 @@ describe('submit', () => {
     const ip = (n: number) => ({ 'cf-connecting-ip': `192.0.2.${100 + n}` })
 
     // Field errors: the form's templates, then the field's own words.
-    const invalid = await submit(appTs, form.slug, { backup: 'x', email: 'x', 'cf-turnstile-response': 'tok' }, { headers: ip(1) })
+    const invalid = await submit(appTs, form.slug, { backup: 'x', 'cf-turnstile-response': 'tok', email: 'x' }, { headers: ip(1) })
     expect(invalid.status).toBe(400)
     expect(invalid.body).toEqual({
-      fieldErrors: { backup: 'M-field-invalid', email: 'M-invalid Email', name: 'M-required Name', nick: 'M-field-empty' },
+      fieldErrors: { name: 'M-required Name', backup: 'M-field-invalid', email: 'M-invalid Email', nick: 'M-field-empty' },
       message: 'M-prefix',
       ok: false,
     })
     // Security check.
     siteverify = { success: false }
-    const security = await submit(appTs, form.slug, { name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(2) })
+    const security = await submit(appTs, form.slug, { name: 'A', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(2) })
     expect(security.body).toEqual({ message: 'M-security', ok: false })
     siteverify = { success: true }
     // Generic error (honeypot).
-    const generic = await submit(appTs, form.slug, { _hp: 'x', name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(3) })
+    const generic = await submit(appTs, form.slug, { name: 'A', _hp: 'x', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(3) })
     expect(generic.body).toEqual({ message: 'M-generic', ok: false })
     // Success, then too many tries (limit 3 in this app).
-    const ok = await submit(appTs, form.slug, { name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(4) })
+    const ok = await submit(appTs, form.slug, { name: 'A', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(4) })
     expect(ok.body).toMatchObject({ message: 'M-success', ok: true })
-    await submit(appTs, form.slug, { name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(4) })
-    await submit(appTs, form.slug, { name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(4) })
-    const tries = await submit(appTs, form.slug, { name: 'A', nick: 'a', 'cf-turnstile-response': 'tok' }, { headers: ip(4) })
+    await submit(appTs, form.slug, { name: 'A', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(4) })
+    await submit(appTs, form.slug, { name: 'A', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(4) })
+    const tries = await submit(appTs, form.slug, { name: 'A', 'cf-turnstile-response': 'tok', nick: 'a' }, { headers: ip(4) })
     expect(tries).toEqual({ body: { message: 'M-tries', ok: false }, status: 429 })
     // Wrong file (file uploads on in the main app).
     const fileForm = await createForm(app, {

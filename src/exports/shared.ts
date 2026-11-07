@@ -7,15 +7,15 @@ export {
   answerToText,
   buildSnapshot,
   checkAnswers,
+  checkFiles,
   type CheckOptions,
   type CheckResult,
-  checkFiles,
   DEFAULT_FILE_LIMITS,
   type FileLimits,
   isValidEmail,
   normalizeAnswer,
 } from '../shared/answers.js'
-export { MATCH_MODES, OPERATOR_VALUES, type OperatorValue, OPERATORS } from '../shared/operators.js'
+export { MATCH_MODES, OPERATOR_VALUES, OPERATORS, type OperatorValue } from '../shared/operators.js'
 export {
   defaultAnswer,
   evaluateRow,
@@ -55,7 +55,7 @@ export {
   buildWhatsAppMessage,
   DEFAULT_WHATSAPP_ROW_TEMPLATE,
   DEFAULT_WHATSAPP_TEMPLATE,
-  whatsappUrl,
   type WhatsAppMessageOptions,
+  whatsappUrl,
 } from '../shared/whatsapp.js'
 export { DEFAULT_WORDS, fillWords, WORD_KEYS } from '../shared/words.js'

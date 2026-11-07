@@ -20,9 +20,12 @@ export const defaultESLintIgnores = [
   '**/build/',
   '**/node_modules/',
   '**/temp/',
+  'input/',
+  'dev/.next/',
 ]
 
 export default [
+  { ignores: defaultESLintIgnores },
   ...payloadEsLintConfig,
   {
     rules: {

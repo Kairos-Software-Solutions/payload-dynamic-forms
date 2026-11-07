@@ -1,8 +1,8 @@
 import type { Payload, PayloadRequest, SendEmailOptions } from 'payload'
 
+import type { EmailOutput, FormDelivery, WebhookOutput } from '../server/forms.js'
 import type { Answers, PublicForm, SnapshotRow, SubmissionStatus } from '../shared/types.js'
 import type { ResolvedOptions } from '../types.js'
-import type { EmailOutput, FormDelivery, WebhookOutput } from '../server/forms.js'
 
 import { isValidEmail } from '../shared/answers.js'
 import { buildMessageRows, buildTemplateValues, interpolate } from '../shared/tokens.js'
