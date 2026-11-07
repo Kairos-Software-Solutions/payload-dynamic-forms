@@ -118,6 +118,8 @@ export type FormWords = {
   fileRejected: string
   genericError: string
   invalid: string
+  /** An unticked checkbox in messages, tokens and the snapshot. */
+  no: string
   notFound: string
   optionalHint: string
   required: string
@@ -130,8 +132,6 @@ export type FormWords = {
   tooManyTries: string
   /** A ticked checkbox in messages, tokens and the snapshot. */
   yes: string
-  /** An unticked checkbox in messages, tokens and the snapshot. */
-  no: string
 }
 
 /** The words `answerToText` needs: the form's `yes` and `no`. */
