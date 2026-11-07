@@ -47,7 +47,7 @@ While you work, run only the test files you touch. The full suite, lint, typeche
 
 ## 7. Final checks
 
-- [ ] 7.1 Run once, in order, and report each result: `yarn install --immutable`, `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, the built-entries command from plugin-setup › "Built package exposes both entries", the pack command from package-release › "Pack lists only shipped files", `yarn spec:validate`. Done when all exit 0 and every CHECK named in the specs is among the passing tests.
+- [x] 7.1 Run once, in order, and report each result: `yarn install --immutable`, `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, the built-entries command from plugin-setup › "Built package exposes both entries", the pack command from package-release › "Pack lists only shipped files", `yarn spec:validate`. Done when all exit 0 and every CHECK named in the specs is among the passing tests.
 
 ## Workflow follow-up
 
