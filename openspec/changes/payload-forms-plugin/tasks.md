@@ -34,10 +34,10 @@ While you work, run only the test files you touch. The full suite, lint, typeche
 
 ## 5. Delivery
 
-- [ ] 5.1 Store on/off and email through `payload.sendEmail`: team outputs, visitor copy to one checked address, reply-to, `beforeEmail`, failures logged without losing the submission. Covers form-delivery › "Store off writes nothing", "Team email goes through the app's adapter", "Visitor copy only to one valid address", "beforeEmail can change the message", "A failed email keeps the submission". Done when `yarn vitest run tests/int/delivery.int.test.ts` passes.
-- [ ] 5.2 WhatsApp delivery in the endpoint, number from the form or the resolver, same URL as the shared helper, nothing written. Covers form-delivery › "Nothing stored, same URL as the helper", "Number from the resolver". Done when `yarn vitest run tests/int/delivery.int.test.ts -t whatsapp` passes.
-- [ ] 5.3 Webhooks: full or answers-only body, secret headers, signature (Decisions 14), timeout, retries with growing pauses (use fake timers). Covers form-delivery › "Signed request with secret headers", "Retries then gives up", "Timeout counts as a failure". Done when `yarn vitest run tests/webhook.test.ts` passes.
-- [ ] 5.4 `delivery.schedule`, the delivery log and status, resend endpoint and sidebar tick (Decisions 15). Covers form-delivery › "Scheduled delivery", "Status from the log", "Resend only what failed", "Resend from the sidebar", "Only admins resend". Done when `yarn vitest run tests/int/delivery.int.test.ts` passes.
+- [x] 5.1 Store on/off and email through `payload.sendEmail`: team outputs, visitor copy to one checked address, reply-to, `beforeEmail`, failures logged without losing the submission. Covers form-delivery › "Store off writes nothing", "Team email goes through the app's adapter", "Visitor copy only to one valid address", "beforeEmail can change the message", "A failed email keeps the submission". Done when `yarn vitest run tests/int/delivery.int.test.ts` passes.
+- [x] 5.2 WhatsApp delivery in the endpoint, number from the form or the resolver, same URL as the shared helper, nothing written. Covers form-delivery › "Nothing stored, same URL as the helper", "Number from the resolver". Done when `yarn vitest run tests/int/delivery.int.test.ts -t whatsapp` passes.
+- [x] 5.3 Webhooks: full or answers-only body, secret headers, signature (Decisions 14), timeout, retries with growing pauses (use fake timers). Covers form-delivery › "Signed request with secret headers", "Retries then gives up", "Timeout counts as a failure". Done when `yarn vitest run tests/webhook.test.ts` passes.
+- [x] 5.4 `delivery.schedule`, the delivery log and status, resend endpoint and sidebar tick (Decisions 15). Covers form-delivery › "Scheduled delivery", "Status from the log", "Resend only what failed", "Resend from the sidebar", "Only admins resend". Done when `yarn vitest run tests/int/delivery.int.test.ts` passes.
 
 ## 6. Package, docs and workflows
 
