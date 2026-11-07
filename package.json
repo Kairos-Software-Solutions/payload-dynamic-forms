@@ -3,6 +3,27 @@
   "version": "0.1.0",
   "description": "Forms for Payload CMS 3: sections, steps, show/hide rules checked on the server, spam checks, attachments, email, WhatsApp and webhook delivery. No visitor UI.",
   "license": "MIT",
+  "author": "Kairos Software Solutions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kairos-Software-Solutions/kairos-payload-forms.git"
+  },
+  "homepage": "https://github.com/Kairos-Software-Solutions/kairos-payload-forms#readme",
+  "bugs": {
+    "url": "https://github.com/Kairos-Software-Solutions/kairos-payload-forms/issues"
+  },
+  "keywords": [
+    "payload",
+    "payload-plugin",
+    "payloadcms",
+    "forms",
+    "form-builder",
+    "cloudflare-workers",
+    "turnstile",
+    "whatsapp",
+    "webhooks"
+  ],
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {

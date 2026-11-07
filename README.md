@@ -1,218 +1,403 @@
-# Payload Plugin Template
+# @kairos-software-solutions/payload-forms
 
-A template repo to create a [Payload CMS](https://payloadcms.com) plugin.
+Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin call.
 
-Payload is built with a robust infrastructure intended to support Plugins with ease. This provides a simple, modular, and reusable way for developers to extend the core capabilities of Payload.
+**What it does**
 
-To build your own Payload plugin, all you need is:
+- Adds three collections: **forms** (sections, field blocks, show/hide rules, steps, every visitor word, delivery settings; drafts and 20 versions), **submissions** (answers, a labelled snapshot, status, delivery log, resend) and **attachments** (private uploads).
+- Checks every answer on the server with the same rule engine your renderer uses in the browser: show/hide rules, required-while-shown, the step path, email, number, date, length, listed choices and files.
+- Spam checks on the server: honeypot, Cloudflare Turnstile and a soft per-visitor rate limit.
+- Delivery: store or not, email through your app's Payload email adapter (`payload.sendEmail`), a WhatsApp link (nothing stored), signed webhooks with retries; optionally after the reply.
+- Choices from a collection (with attributes that rules and message tokens can read) and prefill from link parameters.
 
-- An understanding of the basic Payload concepts
-- And some JavaScript/Typescript experience
+**What it does not do**
 
-## Background
+- It ships **no visitor UI**: no React components, no styles, no admin components. Each app renders its own form markup with the helpers from `@kairos-software-solutions/payload-forms/shared` (see [Rendering](#rendering)).
+- It does not wrap Payload's official form builder; both can run in one app (their slugs differ).
 
-Here is a short recap on how to integrate plugins with Payload, to learn more visit the [plugin overview page](https://payloadcms.com/docs/plugins/overview).
+## Install
 
-### How to install a plugin
+The package is on the public npm registry; no token is needed.
 
-To install any plugin, simply add it to your payload.config() in the Plugin array.
+```sh
+npm install @kairos-software-solutions/payload-forms
+# or
+yarn add @kairos-software-solutions/payload-forms
+# or
+pnpm add @kairos-software-solutions/payload-forms
+```
+
+Then add the plugin to your Payload config:
 
 ```ts
-import myPlugin from 'my-plugin'
+import { buildConfig } from 'payload'
+import { formsPlugin } from '@kairos-software-solutions/payload-forms'
 
-export const config = buildConfig({
+export default buildConfig({
+  // ...
   plugins: [
-    // You can pass options to the plugin
-    myPlugin({
-      enabled: true,
+    formsPlugin({
+      turnstile: { secretKey: process.env.TURNSTILE_SECRET_KEY },
     }),
   ],
 })
 ```
 
-### Initialization
+## Options
 
-The initialization process goes in the following order:
+Every option is optional.
 
-1. Incoming config is validated
-2. **Plugins execute**
-3. Default options are integrated
-4. Sanitization cleans and validates data
-5. Final config gets initialized
+| Option | Default | What it does |
+| --- | --- | --- |
+| `enabled` | `true` | `false` returns your config untouched (see [Switching off](#switching-off)). |
+| `slugs` | `custom-forms`, `custom-form-submissions`, `custom-form-attachments` | Renames the collections; relationships and endpoints follow. |
+| `formOverrides`, `submissionOverrides`, `attachmentOverrides` | – | Any collection property; `access`, `admin`, `hooks` and `upload` are merged key by key; `fields: ({ defaultFields }) => [...]`. |
+| `fields` | all built-in types, `fileUpload` off | Field-type registry: `true`/`false` turns a type on or off, a partial block is deep-merged into the built-in one, `{ block, validate?, normalize?, toText? }` adds a new type that the server checks too. |
+| `optionSources` | – | `{ topics: { collection: 'topics', labelField: 'label', valueField: 'slug', attributes: ['opener'] } }`: choices from a collection. |
+| `words` | `DEFAULT_WORDS` | Default visitor words for new forms. |
+| `attachments` | 10 MB per file, 25 MB per submission, PDF, images, text, CSV, Word | `{ collection?, maxFileSize?, maxTotalSize?, mimeTypes? }`, or `false` for no attachments. |
+| `turnstile` | off | `{ enabled?, secretKey?, fieldName? }`. On without a secret refuses every submission and logs one line. The token field defaults to `cf-turnstile-response`. |
+| `honeypotField` | `_hp` | Name of the honeypot field. |
+| `rateLimit` | `{ max: 5, windowSeconds: 600 }` | Per form and visitor; `false` turns it off. |
+| `whatsapp.number` | – | `({ req, form }) => string` for forms without their own number. |
+| `delivery.schedule` | – | Runs email and webhooks after the reply (see [Delivery after the reply](#delivery-after-the-reply)). |
+| `beforeEmail` | – | `(message, { form, answers, req }) => message`: wrap the html in your layout, add headers. |
+| `access.isAdmin` | any logged-in user | Who reads and writes webhook secrets, updates or deletes submissions and resends. |
+| `metadata` | `{ ip: false, userAgent: true }` | What a submission keeps about the request. |
 
-## Building the Plugin
+### Field types
 
-When you build a plugin, you are purely building a feature for your project and then abstracting it outside of the project.
+Built in: heading and help text (display only), text, email, long text, number, date, select, radio, checkbox, checkbox group and file upload. Each input has a key (stored as kebab-case), required (off by default), width, a default value, a link parameter to prefill from, show/hide rules, its own words (label, hint, placeholder, error when empty, error when invalid, row label in messages) and its type's limits.
 
-### Template Files
-
-In the Payload [plugin template](https://github.com/payloadcms/payload/tree/3.x/templates/plugin), you will see a common file structure that is used across all plugins:
-
-1. root folder
-2. /src folder
-3. /dev folder
-
-#### Root
-
-In the root folder, you will see various files that relate to the configuration of the plugin. We set up our environment in a similar manner in Payload core and across other projects, so hopefully these will look familiar:
-
-- **README**.md\* - This contains instructions on how to use the template. When you are ready, update this to contain instructions on how to use your Plugin.
-- **package**.json\* - Contains necessary scripts and dependencies. Overwrite the metadata in this file to describe your Plugin.
-- .**eslint**.config.js - Eslint configuration for reporting on problematic patterns.
-- .**gitignore** - List specific untracked files to omit from Git.
-- .**prettierrc**.json - Configuration for Prettier code formatting.
-- **tsconfig**.json - Configures the compiler options for TypeScript
-- .**swcrc** - Configuration for SWC, a fast compiler that transpiles and bundles TypeScript.
-- **vitest**.config.js - Config file for Vitest, defining how tests are run and how modules are resolved
-
-**IMPORTANT\***: You will need to modify these files.
-
-#### Dev
-
-In the dev folder, you’ll find a basic payload project, created with `npx create-payload-app` and the blank template.
-
-**IMPORTANT**: Make a copy of the `.env.example` file and rename it to `.env`. Update the `DATABASE_URL` to match the database you are using and your plugin name. Update `PAYLOAD_SECRET` to a unique string.
-**You will not be able to run `pnpm/yarn dev` until you have created this `.env` file.**
-
-`myPlugin` has already been added to the `payload.config()` file in this project.
+A new type:
 
 ```ts
-plugins: [
-  myPlugin({
-    collections: {
-      posts: true,
+formsPlugin({
+  fields: {
+    postcode: {
+      block: { slug: 'postcode', fields: [] }, // key, required, words and rules are added for you
+      validate: (value) => (/\d/.test(String(value)) ? true : 'A postcode has at least one digit.'),
     },
-  }),
-]
-```
-
-Later when you rename the plugin or add additional options, **make sure to update it here**.
-
-You may wish to add collections or expand the test project depending on the purpose of your plugin. Just make sure to keep this dev environment as simplified as possible - users should be able to install your plugin without additional configuration required.
-
-When you’re ready to start development, initiate the project with `pnpm/npm/yarn dev` and pull up [http://localhost:3000](http://localhost:3000) in your browser.
-
-#### Src
-
-Now that we have our environment setup and we have a dev project ready to - it’s time to build the plugin!
-
-**index.ts**
-
-The essence of a Payload plugin is simply to extend the payload config - and that is exactly what we are doing in this file.
-
-```ts
-export const myPlugin =
-  (pluginOptions: MyPluginConfig) =>
-  (config: Config): Config => {
-    // do cool stuff with the config here
-
-    return config
-  }
-```
-
-First, we receive the existing payload config along with any plugin options.
-
-From here, you can extend the config as you wish.
-
-Finally, you return the config and that is it!
-
-##### Spread Syntax
-
-Spread syntax (or the spread operator) is a feature in JavaScript that uses the dot notation **(...)** to spread elements from arrays, strings, or objects into various contexts.
-
-We are going to use spread syntax to allow us to add data to existing arrays without losing the existing data. It is crucial to spread the existing data correctly – else this can cause adverse behavior and conflicts with Payload config and other plugins.
-
-Let’s say you want to build a plugin that adds a new collection:
-
-```ts
-config.collections = [
-  ...(config.collections || []),
-  // Add additional collections here
-]
-```
-
-First we spread the `config.collections` to ensure that we don’t lose the existing collections, then you can add any additional collections just as you would in a regular payload config.
-
-This same logic is applied to other properties like admin, hooks, globals:
-
-```ts
-config.globals = [
-  ...(config.globals || []),
-  // Add additional globals here
-]
-
-config.hooks = {
-  ...(incomingConfig.hooks || {}),
-  // Add additional hooks here
-}
-```
-
-Some properties will be slightly different to extend, for instance the onInit property:
-
-```ts
-import { onInitExtension } from './onInitExtension' // example file
-
-config.onInit = async (payload) => {
-  if (incomingConfig.onInit) await incomingConfig.onInit(payload)
-  // Add additional onInit code by defining an onInitExtension function
-  onInitExtension(pluginOptions, payload)
-}
-```
-
-If you wish to add to the onInit, you must include the **async/await**. We don’t use spread syntax in this case, instead you must await the existing `onInit` before running additional functionality.
-
-In the template, we have stubbed out some addition `onInit` actions that seeds in a document to the `plugin-collection`, you can use this as a base point to add more actions - and if not needed, feel free to delete it.
-
-##### Types.ts
-
-If your plugin has options, you should define and provide types for these options.
-
-```ts
-export type MyPluginConfig = {
-  /**
-   * List of collections to add a custom field
-   */
-  collections?: Partial<Record<CollectionSlug, true>>
-  /**
-   * Disable the plugin
-   */
-  disabled?: boolean
-}
-```
-
-If possible, include JSDoc comments to describe the options and their types. This allows a developer to see details about the options in their editor.
-
-##### Testing
-
-Having a test suite for your plugin is essential to ensure quality and stability. **Vitest** is a fast, modern testing framework that works seamlessly with Vite and supports TypeScript out of the box.
-
-Vitest organizes tests into test suites and cases, similar to other testing frameworks. We recommend creating individual tests based on the expected behavior of your plugin from start to finish.
-
-Writing tests with Vitest is very straightforward, and you can learn more about how it works in the [Vitest documentation.](https://vitest.dev/)
-
-For this template, we stubbed out `int.spec.ts` in the `dev` folder where you can write your tests.
-
-```ts
-describe('Plugin tests', () => {
-  // Create tests to ensure expected behavior from the plugin
-  it('some condition that must be met', () => {
-   // Write your test logic here
-   expect(...)
-  })
+  },
 })
 ```
 
-## Best practices
+### Words
 
-With this tutorial and the plugin template, you should have everything you need to start building your own plugin.
-In addition to the setup, here are other best practices aim we follow:
+Every word a visitor reads is a field: per question (label, hint, placeholder, errors, row label) and per form in **Form wording** (send, sending, sent, continue, back, choose one, step progress, optional hint, error prefix, closed, success, not found, required, invalid, file rejected, too many tries, security check failed, generic error). Word fields are localized when your app has localization. `getPublicForm` fills empty words from the defaults.
 
-- **Providing an enable / disable option:** For a better user experience, provide a way to disable the plugin without uninstalling it. This is especially important if your plugin adds additional webpack aliases, this will allow you to still let the webpack run to prevent errors.
-- **Include tests in your GitHub CI workflow**: If you’ve configured tests for your package, integrate them into your workflow to run the tests each time you commit to the plugin repository. Learn more about [how to configure tests into your GitHub CI workflow.](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs)
-- **Publish your finished plugin to NPM**: The best way to share and allow others to use your plugin once it is complete is to publish an NPM package. This process is straightforward and well documented, find out more [creating and publishing a NPM package here.](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/).
-- **Add payload-plugin topic tag**: Apply the tag **payload-plugin **to your GitHub repository. This will boost the visibility of your plugin and ensure it gets listed with [existing payload plugins](https://github.com/topics/payload-plugin).
-- **Use [Semantic Versioning](https://semver.org/) (SemVar)** - With the SemVar system you release version numbers that reflect the nature of changes (major, minor, patch). Ensure all major versions reference their Payload compatibility.
+### Tokens
 
-# Questions
+Email subjects and bodies and WhatsApp templates take `{{key}}` (dashes and underscores allowed), `{{key.attribute}}` (an attribute of the chosen option), `{{formTitle}}`, `{{submissionId}}`, `{{*}}` (one `Label: value` line per answered, shown field) and `{{*:table}}` (the same rows as an HTML table). Unknown tokens become empty; values are HTML-escaped in html and line breaks are removed from subjects. Email addresses (`to`, `cc`, `bcc`, `from`) can't hold tokens: to write to the visitor, add a **visitor copy** naming an email field.
 
-Please contact [Payload](mailto:dev@payloadcms.com) with any questions about using this plugin template.
+## Attachments and storage order
+
+Attachments are a normal Payload upload collection with no public read: only logged-in users read them, and only the submit endpoint creates them. To keep the files in R2 (or S3, …), map the collection in your storage plugin and list the storage plugin **after** `formsPlugin`, so the collection exists when the storage plugin runs:
+
+```ts
+plugins: [
+  formsPlugin({ fields: { fileUpload: true } }),
+  r2Storage({ bucket: env.R2, collections: { 'custom-form-attachments': true } }),
+]
+```
+
+To use an upload collection of your own instead, pass `attachments: { collection: 'private-files' }`: the plugin adds its link fields (form, submission, field key and label) to it and refuses to start if it is not an upload collection. File uploads need a form that stores submissions.
+
+## Migrations
+
+The plugin adds collections, so apps on Postgres or SQLite/D1 with migrations run `payload migrate:create` after installing it (and after changing `slugs`, `fields` or `optionSources`), then `payload migrate`. Default slugs differ from the official form builder's `forms` and `form-submissions`, so both can run while you move over.
+
+## Switching off
+
+`formsPlugin({ enabled: false })` returns your config unchanged: no collections, fields, endpoints or hooks. A starter can carry the call switched off.
+
+**Warning:** switching it off on an app that already has forms or submissions drops those tables at the next migration you create. Export what you need first.
+
+## Rendering
+
+The package has no UI. Read a published form with `getPublicForm(payload, slug, { locale })` on the server, or `GET /api/custom-forms/public/:slug`, and render it with the shared helpers: `initialAnswers` (defaults and link-parameter prefill), `getVisibility` (what is shown, and in step-by-step forms the path), `getStepPath`, `getNextSectionKey`, `getStepProgress`, `checkAnswers` (the same checks the server runs) and the form's words. To place a form on any page, add `formBlock()` to your page blocks; it holds one relationship to a form.
+
+A minimal client component (`examples/minimal-form.tsx`, typechecked in this repo):
+
+```tsx
+'use client'
+
+import {
+  type Answers,
+  checkAnswers,
+  type FieldBlock,
+  getFieldKey,
+  getOptions,
+  getVisibility,
+  initialAnswers,
+  type InputBlock,
+  isInputBlock,
+  type PublicForm,
+  type SubmitResult,
+} from '@kairos-software-solutions/payload-forms/shared'
+import { type FormEvent, useState } from 'react'
+
+type Props = {
+  /** From `getPublicForm(payload, slug)` or `GET /api/custom-forms/public/:slug`. */
+  form: PublicForm
+  /** The page's search parameters, for prefilled answers (`?need=cameras`). */
+  searchParams?: string
+}
+
+/** A minimal single-page renderer: every word comes from the form. */
+export function MinimalForm({ form, searchParams }: Props) {
+  const words = form.wording
+  const [answers, setAnswers] = useState<Answers>(() => initialAnswers(form, searchParams))
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const shown = getVisibility(form, answers)
+
+  const set = (key: string, value: Answers[string]) => setAnswers((current) => ({ ...current, [key]: value }))
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    // Open the WhatsApp window now, inside the click: after an await, browsers block popups.
+    const popup = form.whatsapp ? window.open('', '_blank') : null
+    const local = checkAnswers(form, answers, { words })
+    if (!local.ok) {
+      popup?.close()
+      setErrors(local.fieldErrors)
+      setMessage(words.errorPrefix)
+      return
+    }
+    setSending(true)
+    const response = await fetch(`/api/custom-forms/submit/${form.slug}`, {
+      body: JSON.stringify({ ...answers, [form.honeypotField]: '' }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    })
+    const result = (await response.json()) as SubmitResult
+    setSending(false)
+    if (!result.ok) {
+      popup?.close()
+      setErrors(result.fieldErrors || {})
+      setMessage(result.message)
+      return
+    }
+    if (result.whatsappUrl && popup) {
+      popup.location.href = result.whatsappUrl
+    }
+    if (result.redirectURL) {
+      window.location.assign(result.redirectURL)
+      return
+    }
+    setErrors({})
+    setMessage(result.message)
+  }
+
+  function renderInput(field: InputBlock, key: string) {
+    const label = field.words?.label || key
+    const value = answers[key]
+    const common = { id: key, name: key, required: Boolean(field.required) }
+    switch (field.blockType) {
+      case 'checkbox':
+        return (
+          <label htmlFor={key}>
+            <input {...common} checked={value === true} onChange={(e) => set(key, e.target.checked)} type="checkbox" />
+            {label}
+          </label>
+        )
+      case 'checkboxGroup':
+      case 'radio':
+        return (
+          <fieldset>
+            <legend>{label}</legend>
+            {getOptions(field).map((option) => {
+              const list = Array.isArray(value) ? value : []
+              const checked = field.blockType === 'radio' ? value === option.value : list.includes(String(option.value))
+              return (
+                <label key={option.value}>
+                  <input
+                    checked={checked}
+                    name={key}
+                    onChange={(e) =>
+                      field.blockType === 'radio'
+                        ? set(key, String(option.value))
+                        : set(key, e.target.checked ? [...list, String(option.value)] : list.filter((v) => v !== option.value))
+                    }
+                    type={field.blockType === 'radio' ? 'radio' : 'checkbox'}
+                    value={String(option.value)}
+                  />
+                  {option.label}
+                </label>
+              )
+            })}
+          </fieldset>
+        )
+      case 'select':
+        return (
+          <label htmlFor={key}>
+            {label}
+            <select {...common} onChange={(e) => set(key, e.target.value)} value={String(value ?? '')}>
+              <option value="">{words.chooseOne}</option>
+              {getOptions(field).map((option) => (
+                <option key={option.value} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )
+      case 'textarea':
+        return (
+          <label htmlFor={key}>
+            {label}
+            <textarea {...common} onChange={(e) => set(key, e.target.value)} placeholder={field.words?.placeholder || undefined} value={String(value ?? '')} />
+          </label>
+        )
+      default:
+        return (
+          <label htmlFor={key}>
+            {label} {field.required ? null : words.optionalHint}
+            <input
+              {...common}
+              onChange={(e) => set(key, e.target.value)}
+              placeholder={field.words?.placeholder || undefined}
+              type={['date', 'email', 'number'].includes(field.blockType) ? field.blockType : 'text'}
+              value={String(value ?? '')}
+            />
+          </label>
+        )
+    }
+  }
+
+  function renderField(field: FieldBlock, index: number) {
+    if (!isInputBlock(field)) {
+      return field.blockType === 'heading' ? <h3 key={index}>{field.heading}</h3> : <p key={index}>{field.body}</p>
+    }
+    const key = getFieldKey(field)
+    if (!shown.fieldKeys.has(key)) {
+      return null
+    }
+    return (
+      <div key={key}>
+        {renderInput(field, key)}
+        {field.words?.hint ? <small>{field.words.hint}</small> : null}
+        {errors[key] ? <strong role="alert">{errors[key]}</strong> : null}
+      </div>
+    )
+  }
+
+  if (form.intakeState === 'closed') {
+    return <p>{words.closed}</p>
+  }
+  return (
+    <form noValidate onSubmit={onSubmit}>
+      {form.sections
+        .filter((section) => shown.sectionKeys.includes(String(section.key)))
+        .map((section) => (
+          <section key={String(section.key)}>
+            {section.title ? <h2>{section.title}</h2> : null}
+            {(section.fields || []).map(renderField)}
+          </section>
+        ))}
+      <input aria-hidden autoComplete="off" hidden name={form.honeypotField} tabIndex={-1} />
+      {message ? <p role="status">{message}</p> : null}
+      <button disabled={sending} type="submit">
+        {sending ? words.sending : words.send}
+      </button>
+    </form>
+  )
+}
+```
+
+For file uploads, post `multipart/form-data` instead of JSON (one entry per file under the field key). For Turnstile, render the widget inside the form; its token goes in the `cf-turnstile-response` field.
+
+## WhatsApp
+
+A form with WhatsApp delivery builds `https://wa.me/<digits>?text=<message>` from a template (default `{{*}}`) and a row template (default `*{{label}}:* {{value}}`, using each field's row label). The number comes from the form, else from the `whatsapp.number` option. The submit endpoint returns the link as `whatsappUrl`; `buildWhatsAppMessage` and `whatsappUrl` in `/shared` give the same link in the browser.
+
+**Popup note:** browsers block `window.open` after an `await`. Open the window inside the click handler before posting (as the example does), then set its location when the link arrives, or close it on an error.
+
+A form that stores nothing and only builds a WhatsApp link skips the honeypot, Turnstile and rate limit: nothing is written or sent by the server.
+
+## Delivery after the reply
+
+By default email and webhooks run before the endpoint answers. To answer first, pass a scheduler:
+
+```ts
+import { after } from 'next/server'
+
+formsPlugin({ delivery: { schedule: (task) => after(task) } })
+// or on Cloudflare Workers: schedule: (task) => getCloudflareContext().ctx.waitUntil(task())
+```
+
+The submission is always stored before the reply (status `received`); the task sends and sets the status. Workers keep `waitUntil` work for up to 30 s after the response: keep webhook timeouts short there (8 s with 3 retries can pass 30 s).
+
+## Endpoints
+
+| Endpoint | Who | Answer |
+| --- | --- | --- |
+| `GET /api/<forms>/public/:slug` | anyone | The published form, ready to render, or 404 `{ ok: false, message }`. |
+| `POST /api/<forms>/submit/:slug` | anyone | JSON or `multipart/form-data` keyed by field key, plus the honeypot and Turnstile fields. |
+| `POST /api/<submissions>/:id/resend` | admins | Runs failed email and webhook deliveries again: `{ ok, status, resent, deliveryLog }`; 403 for others. |
+
+Submit answers:
+
+- `200 { ok: true, message, redirectURL?, submissionId?, whatsappUrl? }`
+- `400 { ok: false, message, fieldErrors? }`: field errors keyed by field key, honeypot, Turnstile.
+- `404` unknown or unpublished form, `409` closed form, `429` too many tries, `500` storing failed or no WhatsApp number.
+
+Every message comes from the form's words. Logged-in admins can also resend by ticking **Resend failed deliveries** on a submission and saving.
+
+### Delivery log and status
+
+Each email or webhook try of a stored submission adds a log entry (kind, output, target, result, error, tries, time). The status is `processed` when all succeeded (or there was nothing to send), `partlyFailed` when some failed and `failed` when all failed. A failed email or webhook never loses the submission.
+
+## Webhook signature
+
+Webhooks send JSON (full: form, submission id, snapshot, attachments and answers; or answers only) by POST, PUT or PATCH with their secret headers, a timeout (default 8 s) and up to 3 retries (pauses 0.5 s, 1 s, 2 s). With a signing secret they carry `X-Form-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`. Check it on the receiving side:
+
+```ts
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+export function verifyFormSignature(header: string, rawBody: string, secret: string, toleranceSeconds = 300) {
+  const parts = Object.fromEntries(header.split(',').map((part) => part.split('=') as [string, string]))
+  const t = Number(parts.t)
+  if (!t || Math.abs(Date.now() / 1000 - t) > toleranceSeconds) return false
+  const expected = createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex')
+  return expected.length === parts.v1?.length && timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1))
+}
+```
+
+## CSV export
+
+Use Payload's import-export plugin for the submissions collection (no jobs runner needed in sync mode):
+
+```ts
+importExportPlugin({ collections: ['custom-form-submissions'], disableJobsQueue: true })
+```
+
+## Privacy and the rate limit
+
+Visitor IPs are not stored unless `metadata: { ip: true }`. The rate limit keeps one entry per visitor and form in Payload's KV store (`payload.kv`), keyed by a SHA-256 hash of the IP and your Payload secret, never the raw IP. It is a soft limit (read, then write); Turnstile is the main spam guard.
+
+## Compatibility
+
+- Payload `^3.92.1` (developed and tested against 3.92.1). Payload 4 is not supported yet.
+- The runtime code uses Web APIs only (Web Crypto, `fetch`, `node:buffer` for uploads), so it runs on Node and on Cloudflare Workers; the `/shared` entry imports nothing from Payload, React or Node and runs in the browser.
+- Tested on SQLite (`@payloadcms/db-sqlite`). Postgres and Workers/D1 are not tested here; nested selects carry short `dbName`s for Postgres.
+
+## Development
+
+Scaffolded from Payload's plugin template: `create-payload-app` 3.93.0 `--template plugin`, which downloaded `templates/plugin` from the `3.x` branch at commit `6eb8e57198678f2e669b906097f670ec98b17523` (7 Nov 2026). Converted to Yarn 4 and SQLite; the sample code, admin components and Playwright tests were removed.
+
+```sh
+corepack enable
+yarn install
+yarn lint && yarn typecheck && yarn test && yarn build
+yarn spec:validate   # OpenSpec plans in openspec/
+yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
+```
+
+`yarn test` runs the unit tests and the integration tests, which boot the dev app (`dev/payload.config.ts`) on a temporary SQLite file with a recording email adapter. Outbound requests are refused in tests.
+
+## Licence
+
+MIT, see [LICENSE](LICENSE).
