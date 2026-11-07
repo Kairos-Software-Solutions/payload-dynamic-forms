@@ -1,5 +1,5 @@
 /**
- * `@kairos-software-solutions/payload-forms/shared`: the rule engine, answer checks, tokens,
+ * `payload-dynamic-forms/shared`: the rule engine, answer checks, tokens,
  * messages and words. Runs the same in the browser, on Workers and in the submit endpoint.
  * Imports nothing from Payload, React or Node at runtime.
  */

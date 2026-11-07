@@ -8,7 +8,7 @@ const licence = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8')
 
 describe('package', () => {
   test('package metadata and licence agree', () => {
-    expect(pkg.name).toBe('@kairos-software-solutions/payload-forms')
+    expect(pkg.name).toBe('payload-dynamic-forms')
     expect(pkg.version).toBe('0.1.0')
     expect(pkg.license).toBe('MIT')
     expect(licence.split('\n')[0]).toBe(`${pkg.license} License`)
@@ -16,7 +16,7 @@ describe('package', () => {
     expect(pkg.peerDependencies).toEqual({ payload: '^3.92.1' })
     expect(pkg.dependencies ?? {}).toEqual({})
     expect(pkg.publishConfig.access).toBe('public')
-    expect(pkg.repository.url).toContain('github.com/Kairos-Software-Solutions/kairos-payload-forms')
+    expect(pkg.repository.url).toContain('github.com/Kairos-Software-Solutions/payload-dynamic-forms')
     expect(pkg.keywords).toContain('payload-plugin')
     expect(pkg.engines).toEqual({ node: '^22.23.4 || >=24.22.1' })
     expect(pkg.files).toEqual(['dist'])

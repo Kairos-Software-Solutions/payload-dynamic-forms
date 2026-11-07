@@ -1921,44 +1921,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@kairos-software-solutions/payload-forms@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@kairos-software-solutions/payload-forms@workspace:."
-  dependencies:
-    "@eslint/eslintrc": "npm:^3.2.0"
-    "@fission-ai/openspec": "npm:1.16.0"
-    "@payloadcms/db-sqlite": "npm:3.92.1"
-    "@payloadcms/eslint-config": "npm:3.28.0"
-    "@payloadcms/next": "npm:3.92.1"
-    "@payloadcms/ui": "npm:3.92.1"
-    "@swc-node/register": "npm:1.10.9"
-    "@swc/cli": "npm:0.6.0"
-    "@swc/core": "npm:1.15.47"
-    "@types/node": "npm:22.19.9"
-    "@types/react": "npm:19.2.14"
-    "@types/react-dom": "npm:19.2.3"
-    cross-env: "npm:^7.0.3"
-    eslint: "npm:^9.23.0"
-    eslint-config-next: "npm:16.3.3"
-    graphql: "npm:^16.8.1"
-    next: "npm:16.3.3"
-    open: "npm:^10.1.0"
-    payload: "npm:3.92.1"
-    prettier: "npm:^3.4.2"
-    qs-esm: "npm:8.0.1"
-    react: "npm:19.2.6"
-    react-dom: "npm:19.2.6"
-    rimraf: "npm:3.0.2"
-    sort-package-json: "npm:^2.10.0"
-    typescript: "npm:5.7.3"
-    vite-tsconfig-paths: "npm:6.0.5"
-    vitest: "npm:4.0.18"
-    yaml: "npm:2.8.1"
-  peerDependencies:
-    payload: ^3.92.1
-  languageName: unknown
-  linkType: soft
-
 "@libsql/client@npm:0.14.0":
   version: 0.14.0
   resolution: "@libsql/client@npm:0.14.0"
@@ -8424,6 +8386,44 @@ __metadata:
   checksum: 10c0/c118dc5a8b5c4166011b2b70608762e260085180bb9e33e80a50dcdb1e78c010b1624f4280c492c92b05fc276715a4c357d1f9edc570f8f1b3d90b6839ebaca1
   languageName: node
   linkType: hard
+
+"payload-dynamic-forms@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "payload-dynamic-forms@workspace:."
+  dependencies:
+    "@eslint/eslintrc": "npm:^3.2.0"
+    "@fission-ai/openspec": "npm:1.16.0"
+    "@payloadcms/db-sqlite": "npm:3.92.1"
+    "@payloadcms/eslint-config": "npm:3.28.0"
+    "@payloadcms/next": "npm:3.92.1"
+    "@payloadcms/ui": "npm:3.92.1"
+    "@swc-node/register": "npm:1.10.9"
+    "@swc/cli": "npm:0.6.0"
+    "@swc/core": "npm:1.15.47"
+    "@types/node": "npm:22.19.9"
+    "@types/react": "npm:19.2.14"
+    "@types/react-dom": "npm:19.2.3"
+    cross-env: "npm:^7.0.3"
+    eslint: "npm:^9.23.0"
+    eslint-config-next: "npm:16.3.3"
+    graphql: "npm:^16.8.1"
+    next: "npm:16.3.3"
+    open: "npm:^10.1.0"
+    payload: "npm:3.92.1"
+    prettier: "npm:^3.4.2"
+    qs-esm: "npm:8.0.1"
+    react: "npm:19.2.6"
+    react-dom: "npm:19.2.6"
+    rimraf: "npm:3.0.2"
+    sort-package-json: "npm:^2.10.0"
+    typescript: "npm:5.7.3"
+    vite-tsconfig-paths: "npm:6.0.5"
+    vitest: "npm:4.0.18"
+    yaml: "npm:2.8.1"
+  peerDependencies:
+    payload: ^3.92.1
+  languageName: unknown
+  linkType: soft
 
 "payload@npm:3.92.1":
   version: 3.92.1

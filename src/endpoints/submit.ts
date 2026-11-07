@@ -121,7 +121,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
       if (delivery.whatsapp.enabled) {
         const number = form.whatsapp?.number
         if (!number) {
-          payload.logger.error(`payload-forms: form "${form.slug}" has WhatsApp on but no number (form or whatsapp.number).`)
+          payload.logger.error(`payload-dynamic-forms: form "${form.slug}" has WhatsApp on but no number (form or whatsapp.number).`)
           return respond(500, { message: words.genericError, ok: false })
         }
         const message = buildWhatsAppMessage(form, answers, {
@@ -193,12 +193,12 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
             })
           }
         } catch (error) {
-          payload.logger.error({ err: error, msg: `payload-forms: could not store a submission of "${form.slug}"` })
+          payload.logger.error({ err: error, msg: `payload-dynamic-forms: could not store a submission of "${form.slug}"` })
           for (const file of created) {
             try {
               await payload.delete({ id: file.id, collection: attachmentSlug as never, overrideAccess: true })
             } catch (deleteError) {
-              payload.logger.error({ err: deleteError, msg: 'payload-forms: could not remove an attachment' })
+              payload.logger.error({ err: deleteError, msg: 'payload-dynamic-forms: could not remove an attachment' })
             }
           }
           return respond(500, { message: words.genericError, ok: false })
@@ -220,7 +220,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               submissionId,
             })
             for (const entry of entries.filter((e) => e.result === 'failed')) {
-              payload.logger.error(`payload-forms: ${entry.kind} "${entry.label}" of "${form.slug}" failed: ${entry.error}`)
+              payload.logger.error(`payload-dynamic-forms: ${entry.kind} "${entry.label}" of "${form.slug}" failed: ${entry.error}`)
             }
             if (submissionId !== undefined) {
               await payload.update({
@@ -231,7 +231,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               })
             }
           } catch (error) {
-            payload.logger.error({ err: error, msg: `payload-forms: delivery of "${form.slug}" failed` })
+            payload.logger.error({ err: error, msg: `payload-dynamic-forms: delivery of "${form.slug}" failed` })
           }
         }
         if (options.delivery?.schedule) {

@@ -12,7 +12,7 @@ import {
   isInputBlock,
   type PublicForm,
   type SubmitResult,
-} from '@kairos-software-solutions/payload-forms/shared'
+} from 'payload-dynamic-forms/shared'
 import { type FormEvent, useState } from 'react'
 
 type Props = {

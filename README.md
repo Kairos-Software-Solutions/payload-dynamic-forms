@@ -1,4 +1,4 @@
-# @kairos-software-solutions/payload-forms
+# payload-dynamic-forms
 
 Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin call.
 
@@ -12,7 +12,7 @@ Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin cal
 
 **What it does not do**
 
-- It ships **no visitor UI**: no React components, no styles, no admin components. Each app renders its own form markup with the helpers from `@kairos-software-solutions/payload-forms/shared` (see [Rendering](#rendering)).
+- It ships **no visitor UI**: no React components, no styles, no admin components. Each app renders its own form markup with the helpers from `payload-dynamic-forms/shared` (see [Rendering](#rendering)).
 - It does not wrap Payload's official form builder; both can run in one app (their slugs differ).
 
 ## Install
@@ -20,18 +20,18 @@ Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin cal
 The package is on the public npm registry; no token is needed.
 
 ```sh
-npm install @kairos-software-solutions/payload-forms
+npm install payload-dynamic-forms
 # or
-yarn add @kairos-software-solutions/payload-forms
+yarn add payload-dynamic-forms
 # or
-pnpm add @kairos-software-solutions/payload-forms
+pnpm add payload-dynamic-forms
 ```
 
 Then add the plugin to your Payload config:
 
 ```ts
 import { buildConfig } from 'payload'
-import { formsPlugin } from '@kairos-software-solutions/payload-forms'
+import { formsPlugin } from 'payload-dynamic-forms'
 
 export default buildConfig({
   // ...
@@ -134,7 +134,7 @@ import {
   isInputBlock,
   type PublicForm,
   type SubmitResult,
-} from '@kairos-software-solutions/payload-forms/shared'
+} from 'payload-dynamic-forms/shared'
 import { type FormEvent, useState } from 'react'
 
 type Props = {

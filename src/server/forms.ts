@@ -68,7 +68,7 @@ type Locale = 'all' | TypedLocale | undefined
 export function getPluginOptions(payload: Payload): ResolvedOptions {
   const options = (payload.config.custom as { payloadForms?: ResolvedOptions } | undefined)?.payloadForms
   if (!options) {
-    throw new Error('payload-forms: formsPlugin is not installed (or is switched off) in this config.')
+    throw new Error('payload-dynamic-forms: formsPlugin is not installed (or is switched off) in this config.')
   }
   return options
 }

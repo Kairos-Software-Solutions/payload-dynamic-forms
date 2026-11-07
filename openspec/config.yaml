@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  @kairos-software-solutions/payload-forms: an open-source Payload CMS 3 plugin (repo kairos-payload-forms),
+  payload-dynamic-forms: an open-source Payload CMS 3 plugin (repo Kairos-Software-Solutions/payload-dynamic-forms),
   published to public npm. It ships collections, fields, validation, server endpoints and handlers,
   delivery (store, email through payload.sendEmail, WhatsApp link, webhook) and typed helpers.
   It ships no visitor-facing UI: each app that installs it renders its own forms.

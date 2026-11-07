@@ -52,7 +52,7 @@ export async function checkTurnstile(args: {
   if (!settings.secretKey) {
     if (!warned.has(settings)) {
       warned.add(settings)
-      args.logger.error('payload-forms: Turnstile is on but has no secret key; every submission is refused.')
+      args.logger.error('payload-dynamic-forms: Turnstile is on but has no secret key; every submission is refused.')
     }
     return false
   }

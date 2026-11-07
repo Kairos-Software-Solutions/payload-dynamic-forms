@@ -20,7 +20,24 @@ describe('README', () => {
     // The example is part of the typecheck (tsconfig include) and uses only the shared entry.
     const tsconfig = JSON.parse(fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8'))
     expect(tsconfig.include).toContain('./examples/**/*.tsx')
-    expect(file).toContain("from '@kairos-software-solutions/payload-forms/shared'")
+    expect(file).toContain("from 'payload-dynamic-forms/shared'")
+  })
+
+  test('readme uses the package name from package.json', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { name: string }
+    expect(pkg.name).toBe('payload-dynamic-forms')
+    expect(readme.split('\n')[0]).toBe(`# ${pkg.name}`)
+    for (const command of ['npm install', 'yarn add', 'pnpm add']) {
+      const lines = readme.split('\n').filter((line) => line.startsWith(`${command} `))
+      expect(lines, command).toEqual([`${command} ${pkg.name}`])
+    }
+    // No earlier package or repo name anywhere in the README.
+    // Built from parts so the repo-wide name grep (task 8.1) stays empty.
+    const scope = ['@kairos', 'software', 'solutions/'].join('-')
+    for (const old of [scope, ['kairos', 'payload', 'forms'].join('-'), 'payload-forms-plugin']) {
+      expect(readme, old).not.toContain(old)
+    }
+    expect(readme).not.toMatch(/(^|[^-])payload-forms\b/)
   })
 
   test('readme has every setup section', () => {

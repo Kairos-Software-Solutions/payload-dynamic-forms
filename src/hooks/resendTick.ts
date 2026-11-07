@@ -36,7 +36,7 @@ export function resendTickHook(options: ResolvedOptions): CollectionBeforeChange
             overrideAccess: true,
           })
         } catch (error) {
-          payload.logger.error({ err: error, msg: 'payload-forms: scheduled resend failed' })
+          payload.logger.error({ err: error, msg: 'payload-dynamic-forms: scheduled resend failed' })
         }
       })
       return data

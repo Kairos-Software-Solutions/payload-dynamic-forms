@@ -1,16 +1,16 @@
 {
-  "name": "@kairos-software-solutions/payload-forms",
+  "name": "payload-dynamic-forms",
   "version": "0.1.0",
   "description": "Forms for Payload CMS 3: sections, steps, show/hide rules checked on the server, spam checks, attachments, email, WhatsApp and webhook delivery. No visitor UI.",
   "license": "MIT",
   "author": "Kairos Software Solutions",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kairos-Software-Solutions/kairos-payload-forms.git"
+    "url": "git+https://github.com/Kairos-Software-Solutions/payload-dynamic-forms.git"
   },
-  "homepage": "https://github.com/Kairos-Software-Solutions/kairos-payload-forms#readme",
+  "homepage": "https://github.com/Kairos-Software-Solutions/payload-dynamic-forms#readme",
   "bugs": {
-    "url": "https://github.com/Kairos-Software-Solutions/kairos-payload-forms/issues"
+    "url": "https://github.com/Kairos-Software-Solutions/payload-dynamic-forms/issues"
   },
   "keywords": [
     "payload",

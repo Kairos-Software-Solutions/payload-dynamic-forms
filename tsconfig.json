@@ -15,8 +15,8 @@
     "target": "ES2022",
     "paths": {
       "@payload-config": ["./dev/payload.config.ts"],
-      "@kairos-software-solutions/payload-forms": ["./src/index.ts"],
-      "@kairos-software-solutions/payload-forms/shared": ["./src/exports/shared.ts"]
+      "payload-dynamic-forms": ["./src/index.ts"],
+      "payload-dynamic-forms/shared": ["./src/exports/shared.ts"]
     },
     "plugins": [{ "name": "next" }]
   },
