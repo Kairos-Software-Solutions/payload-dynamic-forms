@@ -6,7 +6,7 @@ Kairos sites each carry their own forms code, and the copies have drifted: the K
 
 ## What Changes
 
-- New repo `kairos-payload-forms`, scaffolded by the builder from `npx create-payload-app@latest --template plugin`, converted to Yarn 4 and SQLite, with the template's sample code, admin components and Playwright e2e removed.
+- New public repo `payload-dynamic-forms` (first named `kairos-payload-forms`; renamed in fix round 1), scaffolded by the builder from `npx create-payload-app@latest --template plugin`, converted to Yarn 4 and SQLite, with the template's sample code, admin components and Playwright e2e removed.
 - The plugin `formsPlugin(options)`: an `enabled` flag (the starter can include it switched off), renameable slugs, collection overrides, a field-type registry in the official form builder's style (`true`/`false`/partial block/new block), option sources (choices from a collection), Turnstile, rate limit, attachments and delivery options.
 - Three collections: forms (sections, field blocks, show/hide rules, steps, words, delivery settings; drafts and 20 versions), submissions (answers, a labelled snapshot, status, delivery log, resend) and attachments (private uploads, R2 on Kairos sites through the app's storage plugin).
 - A shared rule engine and helpers that run the same way in the browser and on the server: visibility, required-while-visible, the step path, option attributes in rules, prefill from link parameters, answer checks, message and token building, the wa.me URL.
@@ -32,7 +32,7 @@ Kairos sites each carry their own forms code, and the copies have drifted: the K
 
 ## Impact
 
-- New public package `@kairos-software-solutions/payload-forms` 0.1.0 (name pending the reviewer's call on the npm scope). Peer `payload ^3.92.1`; developed and tested against Payload 3.92.1.
+- New public package `payload-dynamic-forms` 0.1.0 (first built as `@kairos-software-solutions/payload-forms`) (name pending the reviewer's call on the npm scope). Peer `payload ^3.92.1`; developed and tested against Payload 3.92.1.
 - Nothing live changes: no site installs it in this change, nothing is pushed or published.
 - Source ported from the Kairos website's forms engine (read-only input); the website keeps running its own copy until a later change moves it.
 

@@ -2,12 +2,12 @@
 
 ## Purpose
 
-What makes the plugin installable and maintainable as a public npm package: its docs, licence, the files it ships, CI on every push, and a publish workflow that runs only on a version tag.
+What makes the plugin installable and maintainable as a public npm package: its docs, licence, the files it ships, CI on every push, and a release workflow on `main` that publishes each new version, as Kairos's `kairos-design` package does.
 
 ## ADDED Requirements
 
 ### Requirement: README
-The README SHALL cover: what the plugin does and does not do (no visitor UI), install with any package manager from public npm, the one-call setup with every option, the storage plugin order for attachments on R2, migrations, switching it off, a minimal rendering example, the WhatsApp popup note, delivery after the reply, the endpoints and their responses, and the tested Payload range. It SHALL name no client.
+The README SHALL cover: what the plugin does and does not do (no visitor UI), install with any package manager from public npm, the one-call setup with every option, the storage plugin order for attachments on R2, migrations, switching it off, a minimal rendering example, the WhatsApp popup note, delivery after the reply, the endpoints and their responses, and the tested Payload range. It SHALL name no client, and its title and install commands SHALL use the package name from `package.json`.
 
 #### Scenario: Example in the README is real code
 - **WHEN** the test reads the README's rendering example and `examples/minimal-form.tsx`
@@ -19,12 +19,17 @@ The README SHALL cover: what the plugin does and does not do (no visitor UI), in
 - **THEN** it has sections for install, options, attachments and storage order, migrations, switching off, rendering, WhatsApp, delivery after the reply, endpoints and compatibility
 - **CHECK** tests/readme.test.ts › "readme has every setup section"
 
+#### Scenario: README uses the package name
+- **WHEN** the test reads the README and `package.json`
+- **THEN** the README's title and its npm, yarn and pnpm install lines use the `name` from `package.json`, and the README never mentions an earlier package name
+- **CHECK** tests/readme.test.ts › "readme uses the package name from package.json"
+
 ### Requirement: Licence and package metadata
-The repo SHALL have a LICENSE file with the licence the reviewer picks (MIT unless he says otherwise), and `package.json` SHALL carry the same licence, the package name, version 0.1.0, `publishConfig.access: public`, the repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and the same Node engines as Payload 3.92.1 (`^22.23.4 || >=24.22.1`).
+The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.1.0, `publishConfig.access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
 
 #### Scenario: Metadata matches
 - **WHEN** the test reads `package.json` and `LICENSE`
-- **THEN** the licence names agree, the peer range is `^3.92.1`, access is public and the version is 0.1.0
+- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, access is public and the version is 0.1.0
 - **CHECK** tests/package.test.ts › "package metadata and licence agree"
 
 ### Requirement: Package contents
@@ -43,18 +48,23 @@ A GitHub Actions workflow SHALL run on pushes and pull requests with Node 22: in
 - **THEN** it triggers on push and pull_request, uses Node 22, runs `yarn install --immutable`, `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, `yarn spec:validate` and the pack check, and references no secret
 - **CHECK** tests/workflows.test.ts › "ci runs every check without secrets"
 
-### Requirement: Publish on a version tag
-A second workflow SHALL run only on tags `v*.*.*`: the same checks, a check that the tag equals `package.json`'s version, then `npm publish --access public --provenance` with `NODE_AUTH_TOKEN` from the `NPM_TOKEN` secret, inside a GitHub environment named `npm` so the reviewer can require approval. No other workflow SHALL publish.
+### Requirement: Release from main, like kairos-design
+Only `.github/workflows/release.yml` SHALL publish. On a push to `main`, a `v*.*.*` tag or a manual run, on Node 24, it SHALL skip a version whose tag exists, run every check, publish with `npm publish --access public --provenance` through npm trusted publishing, and tag only after the publish succeeds. The `NPM_TOKEN` secret SHALL reach the publish step only, for the package's first publish (npm can't trust a package that doesn't exist yet).
 
-#### Scenario: Publish runs only on tags with the token
-- **WHEN** the test parses `.github/workflows/publish.yml`
-- **THEN** it triggers only on `v*.*.*` tags, has `id-token: write` and `contents: read`, uses environment `npm`, checks tag against version before publishing, and passes `secrets.NPM_TOKEN` only to the publish step
-- **CHECK** tests/workflows.test.ts › "publish runs only on version tags with the npm token"
+#### Scenario: New version from main is published, a tagged one is skipped
+- **WHEN** the test parses `.github/workflows/release.yml`
+- **THEN** it triggers on push to `main`, on `v*.*.*` tags and on `workflow_dispatch`, uses Node 24, stops before installing when `v<version>` exists on a branch push, checks a pushed tag against the version, and runs the publish step before the step that creates and pushes the tag
+- **CHECK** tests/workflows.test.ts › "release publishes a new version from main and skips a tagged one"
+
+#### Scenario: Trusted publishing, token only for the first publish
+- **WHEN** the test parses `.github/workflows/release.yml`
+- **THEN** permissions are `contents: write` and `id-token: write`, the publish command is `npm publish --access public --provenance`, `secrets.NPM_TOKEN` appears only in the publish step's env, and no job sets `environment`
+- **CHECK** tests/workflows.test.ts › "release uses trusted publishing and the npm token only on the publish step"
 
 #### Scenario: Nothing else publishes
 - **WHEN** the test reads every file under `.github/workflows/`
-- **THEN** only `publish.yml` contains `npm publish`
-- **CHECK** tests/workflows.test.ts › "only publish.yml publishes"
+- **THEN** only `release.yml` contains `npm publish`, and `publish.yml` no longer exists
+- **CHECK** tests/workflows.test.ts › "only release.yml publishes"
 
 ### Requirement: Tests on the dev app
 `yarn test` SHALL run the unit tests and the integration tests, which start the plugin template's dev app on SQLite with a capturing email adapter and stubbed outbound HTTP, so no test needs a network, a Cloudflare account or a secret.

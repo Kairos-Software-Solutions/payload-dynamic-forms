@@ -50,6 +50,11 @@ Every word a visitor reads SHALL be a field in Payload. Each input SHALL group i
 - **THEN** every response message and field error is the matching marker, never a fixed English string
 - **CHECK** tests/int/submit.int.test.ts › "server messages come from the form's words"
 
+#### Scenario: Yes and No come from the form's words
+- **WHEN** a ticked and an unticked checkbox answer are turned into message text (email, WhatsApp, webhook, snapshot)
+- **THEN** they read the form's `yes` and `no` words (defaults "Yes" and "No", localized like the other words), never a word fixed in code
+- **CHECK** tests/answers.test.ts › "checkbox answers use the form's yes and no words"
+
 ### Requirement: Choices from a collection
 The plugin SHALL take `optionSources`, each naming a collection, its label and value fields and extra attributes to carry. A select, radio or checkbox-group block SHALL take its choices either typed in the block or from a source; for a source, the editor SHALL pick items in a sortable relationship, and leaving it empty SHALL mean all items sorted by the source's default sort.
 

@@ -49,9 +49,16 @@ While you work, run only the test files you touch. The full suite, lint, typeche
 
 - [x] 7.1 Run once, in order, and report each result: `yarn install --immutable`, `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, the built-entries command from plugin-setup › "Built package exposes both entries", the pack command from package-release › "Pack lists only shipped files", `yarn spec:validate`. Done when all exit 0 and every CHECK named in the specs is among the passing tests.
 
+## 8. Fix round 1 (decisions 17 and 18)
+
+- [ ] 8.1 Rename to `payload-dynamic-forms` everywhere outside `openspec/changes/`: `package.json` name and repository, README title and install lines, `examples/minimal-form.tsx` imports, `openspec/config.yaml`, tests. Covers package-release › "Metadata matches", "README uses the package name". Done when `yarn vitest run tests/package.test.ts tests/readme.test.ts` passes and `git grep -nE 'kairos-software-solutions/payload-forms|kairos-payload-forms' -- ':!openspec/changes' ':!yarn.lock'` prints nothing.
+- [ ] 8.2 Replace `publish.yml` with `release.yml` (decision 17) and update `tests/workflows.test.ts` (rename "only publish.yml publishes" to "only release.yml publishes", replace the publish test with the two release tests). Covers package-release › "New version from main is published, a tagged one is skipped", "Trusted publishing, token only for the first publish", "Nothing else publishes". Done when `yarn vitest run tests/workflows.test.ts` passes. README › Development: one paragraph on releasing (bump the version on `main`; the first publish needs the `NPM_TOKEN` secret, later ones use trusted publishing).
+- [ ] 8.3 `yes` and `no` form words (decision 18): defaults, localized, `answerToText` reads them; every caller passes the form's words. Covers form-model › "Yes and No come from the form's words". Done when `yarn vitest run tests/answers.test.ts tests/int/delivery.int.test.ts` passes.
+- [ ] 8.4 Final checks again, once, in order: `yarn install --immutable`, `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, the built-entries command, the pack command (its output now names `payload-dynamic-forms`), `yarn spec:validate`. Done when all exit 0 and every CHECK named in the specs is among the passing tests.
+
 ## Workflow follow-up
 
 - The planner reviews the work and reruns every CHECK in a throwaway sandbox.
-- On the reviewer's yes: create the public repo `Kairos-Software-Solutions/kairos-payload-forms`, push, confirm CI is green, add the `npm` environment (reviewer as required approver) and the `NPM_TOKEN` secret, archive this change (tooling change: archive before the push).
-- Publishing 0.1.0 (tag `v0.1.0`) waits for the reviewer's separate yes. After the first publish, consider switching to npm trusted publishing and removing the token.
+- The planner archives this change (tooling change: archive before the push), creates the public repo `Kairos-Software-Solutions/payload-dynamic-forms` with Actions off, pushes `main`, then turns Actions on. The reviewer said yes to publishing (7 Nov 2026).
+- First publish: the reviewer creates a short-lived npm granular token (publish rights on new packages, 7-day expiry) and stores it as the repo secret `NPM_TOKEN` (or runs `npm publish` himself once). The planner reruns `release.yml`, checks 0.1.0 on the npm registry, then the reviewer adds the trusted publisher on npmjs.com (repo `payload-dynamic-forms`, workflow `release.yml`) and the token is deleted.
 - Later changes, each with its own plan: install into a site on QA (proves Workers, D1, R2 and `after`/`waitUntil`), move the Kairos website's forms, move the client WhatsApp form, include it switched off in the site starter.
