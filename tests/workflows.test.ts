@@ -6,7 +6,15 @@ import { parse } from 'yaml'
 const dir = path.resolve(import.meta.dirname, '../.github/workflows')
 const read = (name: string) => fs.readFileSync(path.join(dir, name), 'utf8')
 
-type Step = { env?: Record<string, string>; name?: string; run?: string; uses?: string; with?: Record<string, unknown> }
+type Step = {
+  env?: Record<string, string>
+  id?: string
+  if?: string
+  name?: string
+  run?: string
+  uses?: string
+  with?: Record<string, unknown>
+}
 type Workflow = {
   jobs: Record<string, { environment?: string; steps: Step[] }>
   on: Record<string, unknown>
@@ -14,20 +22,35 @@ type Workflow = {
 }
 
 const PACK_CHECK = 'npm pack --dry-run --json'
+const CHECKS = ['yarn install --immutable', 'yarn lint', 'yarn typecheck', 'yarn test', 'yarn build', 'yarn spec:validate', PACK_CHECK]
 
 function runs(workflow: Workflow): string[] {
   return Object.values(workflow.jobs).flatMap((job) => job.steps.map((s) => s.run || ''))
 }
 
-function checks(workflow: Workflow) {
+function checks(workflow: Workflow, nodeVersion: number) {
   const commands = runs(workflow).join('\n')
-  for (const command of ['yarn install --immutable', 'yarn lint', 'yarn typecheck', 'yarn test', 'yarn build', 'yarn spec:validate', PACK_CHECK]) {
+  for (const command of CHECKS) {
     expect(commands, command).toContain(command)
   }
   const steps = Object.values(workflow.jobs).flatMap((job) => job.steps)
   const node = steps.find((s) => s.uses?.startsWith('actions/setup-node'))
-  expect(node?.with?.['node-version']).toBe(22)
+  expect(node?.with?.['node-version']).toBe(nodeVersion)
   expect(commands).toContain('corepack enable')
+}
+
+function release() {
+  const text = read('release.yml')
+  const workflow = parse(text) as Workflow
+  const jobs = Object.values(workflow.jobs)
+  expect(jobs).toHaveLength(1)
+  const steps = jobs[0].steps
+  const index = (match: (s: Step) => boolean) => {
+    const i = steps.findIndex(match)
+    expect(i).toBeGreaterThan(-1)
+    return i
+  }
+  return { index, jobs, steps, text, workflow }
 }
 
 describe('workflows', () => {
@@ -35,43 +58,79 @@ describe('workflows', () => {
     const text = read('ci.yml')
     const ci = parse(text) as Workflow
     expect(Object.keys(ci.on).sort()).toEqual(['pull_request', 'push'])
-    checks(ci)
+    checks(ci, 22)
     expect(text).not.toMatch(/secrets\./)
     expect(text).not.toContain('npm publish')
   })
 
-  test('publish runs only on version tags with the npm token', () => {
-    const text = read('publish.yml')
-    const publish = parse(text) as Workflow
-    expect(publish.on).toEqual({ push: { tags: ['v*.*.*'] } })
-    expect(publish.permissions).toEqual({ contents: 'read', 'id-token': 'write' })
-    const jobs = Object.values(publish.jobs)
-    expect(jobs).toHaveLength(1)
-    expect(jobs[0].environment).toBe('npm')
-    checks(publish)
-    const steps = jobs[0].steps
-    const publishIndex = steps.findIndex((s) => s.run?.includes('npm publish'))
-    const tagIndex = steps.findIndex((s) => s.run?.includes('GITHUB_REF_NAME') && s.run.includes('package.json'))
-    expect(publishIndex).toBeGreaterThan(-1)
-    expect(tagIndex).toBeGreaterThan(-1)
-    expect(tagIndex).toBeLessThan(publishIndex)
-    expect(steps[publishIndex].run).toContain('npm publish --access public --provenance')
+  test('release publishes a new version from main and skips a tagged one', () => {
+    const { index, steps, workflow } = release()
+    expect(workflow.on).toEqual({
+      push: { branches: ['main'], tags: ['v*.*.*'] },
+      workflow_dispatch: null,
+    })
+    checks(workflow, 24)
+
+    // Tags are fetched so the "tag exists" check can see them.
+    const checkout = steps[index((s) => !!s.uses?.startsWith('actions/checkout'))]
+    expect(checkout.with?.['fetch-depth']).toBe(0)
+
+    const prepareIndex = index((s) => s.id === 'release')
+    const prepare = steps[prepareIndex].run!
+    // A pushed tag must equal the package version.
+    expect(prepare).toContain(`require('./package.json').version`)
+    expect(prepare).toMatch(/GITHUB_REF_TYPE" == "tag"/)
+    expect(prepare).toMatch(/"\$GITHUB_REF_NAME" != "\$package_tag"[\s\S]*?exit 1/)
+    // A branch push whose v<version> tag exists publishes nothing.
+    expect(prepare).toMatch(/git show-ref --verify --quiet "refs\/tags\/\$package_tag"; then\s+echo "publish=false"/)
+
+    // Every step after "prepare" (install included) runs only when there is something to publish.
+    const installIndex = index((s) => s.run === 'yarn install --immutable')
+    expect(prepareIndex).toBeLessThan(installIndex)
+    steps.slice(0, prepareIndex).forEach((s) => expect(s.run ?? '', s.name).not.toMatch(/yarn|npm (ci|install|publish)/))
+    const publishIndex = index((s) => !!s.run?.includes('npm publish'))
+    const tagIndex = index((s) => !!s.run?.includes('git tag') && s.run.includes('push origin'))
+    for (const step of steps.slice(prepareIndex + 1)) {
+      const gate = step.run?.includes('git tag') ? 'create_tag' : 'publish'
+      expect(step.if, step.name).toBe(`steps.release.outputs.${gate} == 'true'`)
+    }
+    // Every check runs before the publish, and the tag is created only after it.
+    for (const command of CHECKS) {
+      expect(index((s) => !!s.run?.includes(command)), command).toBeLessThan(publishIndex)
+    }
+    expect(publishIndex).toBeLessThan(tagIndex)
+    expect(tagIndex).toBe(steps.length - 1)
+  })
+
+  test('release uses trusted publishing and the npm token only on the publish step', () => {
+    const { index, jobs, steps, text, workflow } = release()
+    expect(workflow.permissions).toEqual({ contents: 'write', 'id-token': 'write' })
+    for (const job of jobs) {
+      expect(job).not.toHaveProperty('environment')
+    }
+    expect(text).not.toMatch(/^\s*environment:/m)
+    const publishIndex = index((s) => !!s.run?.includes('npm publish'))
+    expect(steps[publishIndex].run).toBe('npm publish --access public --provenance')
     expect(steps[publishIndex].env).toEqual({ NODE_AUTH_TOKEN: '${{ secrets.NPM_TOKEN }}' })
-    // The token reaches the publish step only.
+    // The token appears once, in the publish step's env, and no other secret is used.
     expect(text.match(/secrets\.NPM_TOKEN/g)).toHaveLength(1)
     expect(text.match(/secrets\./g)).toHaveLength(1)
     steps.forEach((step, i) => {
       if (i !== publishIndex) {
-        expect(JSON.stringify(step)).not.toContain('secrets.')
+        expect(JSON.stringify(step), step.name).not.toContain('secrets.')
       }
     })
+    // setup-node writes the registry .npmrc that npm publish reads.
+    const node = steps.find((s) => s.uses?.startsWith('actions/setup-node'))
+    expect(node?.with?.['registry-url']).toBe('https://registry.npmjs.org')
   })
 
-  test('only publish.yml publishes', () => {
+  test('only release.yml publishes', () => {
     const files = fs.readdirSync(dir)
-    expect(files.sort()).toEqual(['ci.yml', 'publish.yml'])
+    expect(files.sort()).toEqual(['ci.yml', 'release.yml'])
+    expect(fs.existsSync(path.join(dir, 'publish.yml'))).toBe(false)
     for (const file of files) {
-      expect(read(file).includes('npm publish'), file).toBe(file === 'publish.yml')
+      expect(read(file).includes('npm publish'), file).toBe(file === 'release.yml')
     }
   })
 })

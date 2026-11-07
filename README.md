@@ -398,6 +398,8 @@ yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
 
 `yarn test` runs the unit tests and the integration tests, which boot the dev app (`dev/payload.config.ts`) on a temporary SQLite file with a recording email adapter. Outbound requests are refused in tests.
 
+**Releasing.** Bump `version` in `package.json` on `main` (straight or through a pull request). `.github/workflows/release.yml` then runs every check, publishes the new version to npm with provenance and tags it `v<version>`; a version whose tag already exists is skipped, so other pushes to `main` publish nothing. The first publish needs the `NPM_TOKEN` repository secret, because npm can only trust a package that already exists; after it, add this repo's `release.yml` as the trusted publisher on npmjs.com and delete the secret, and later releases use trusted publishing.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).

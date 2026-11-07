@@ -1,0 +1,136 @@
+name: Release
+
+# Publishes each new version from main, the way the kairos-design package does:
+# bump "version" in package.json on main, and this workflow runs every check,
+# publishes to public npm and tags v<version>. A version whose tag exists is skipped.
+# Publishing uses npm trusted publishing (OIDC). npm can't trust a package that doesn't
+# exist yet, so the first publish (0.1.0) uses the NPM_TOKEN secret; it is deleted once
+# the trusted publisher is set up on npmjs.com.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-package
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Check out the commit and its tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Prepare the release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          package_version="$(node -p "require('./package.json').version")"
+
+          if [[ ! "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "package.json contains an invalid release version: $package_version"
+            exit 1
+          fi
+
+          package_tag="v$package_version"
+
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            if [[ "$GITHUB_REF_NAME" != "$package_tag" ]]; then
+              echo "Tag $GITHUB_REF_NAME does not match package.json version $package_version."
+              exit 1
+            fi
+
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "create_tag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "Releases come from main or a version tag, not $GITHUB_REF_NAME."
+            exit 1
+          fi
+
+          if git show-ref --verify --quiet "refs/tags/$package_tag"; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "create_tag=false" >> "$GITHUB_OUTPUT"
+            echo "$package_tag already exists. Nothing to release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "create_tag=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$package_tag" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable Corepack
+        if: steps.release.outputs.publish == 'true'
+        run: corepack enable
+
+      - name: Install
+        if: steps.release.outputs.publish == 'true'
+        run: yarn install --immutable
+
+      - name: Lint
+        if: steps.release.outputs.publish == 'true'
+        run: yarn lint
+
+      - name: Typecheck
+        if: steps.release.outputs.publish == 'true'
+        run: yarn typecheck
+
+      - name: Test
+        if: steps.release.outputs.publish == 'true'
+        run: yarn test
+
+      - name: Build
+        if: steps.release.outputs.publish == 'true'
+        run: yarn build
+
+      - name: Validate OpenSpec
+        if: steps.release.outputs.publish == 'true'
+        run: yarn spec:validate
+
+      - name: Pack check
+        if: steps.release.outputs.publish == 'true'
+        run: |
+          npm pack --dry-run --json | node -e "const f=JSON.parse(require('fs').readFileSync(0))[0].files.map(x=>x.path);const bad=f.filter(p=>!/^(dist\/|package\.json$|README\.md$|LICENSE$)/.test(p));if(bad.length){console.error(bad);process.exit(1)}console.log('ok',f.length)"
+
+      # Trusted publishing (OIDC) once the trusted publisher is set on npmjs.com.
+      # NPM_TOKEN is only for the first publish, before the package exists.
+      - name: Publish
+        if: steps.release.outputs.publish == 'true'
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Tagged after the publish (kairos-design tags first): a failed publish leaves no
+      # tag, so rerunning the workflow tries the same version again.
+      - name: Create and push the version tag
+        if: steps.release.outputs.create_tag == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --annotate "$TAG" --message "Release $TAG"
+          git push origin "$TAG"
