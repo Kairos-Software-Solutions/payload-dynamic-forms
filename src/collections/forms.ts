@@ -14,8 +14,10 @@ const WORD_HELP: Record<string, string> = {
   errorPrefix: 'Shown above the field errors.',
   fileRejected: 'Field error for a file that is refused. {{label}} is the field label.',
   invalid: 'Field error for a bad value. {{label}} is the field label.',
+  no: 'An unticked checkbox in emails, WhatsApp messages, webhooks and the stored snapshot.',
   required: 'Field error for a missing answer. {{label}} is the field label.',
   stepProgress: '{{current}} and {{total}} are the step numbers.',
+  yes: 'A ticked checkbox in emails, WhatsApp messages, webhooks and the stored snapshot.',
 }
 
 function wordingField(options: ResolvedOptions): Field {

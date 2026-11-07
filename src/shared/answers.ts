@@ -7,6 +7,7 @@ import type {
   FormWords,
   InputBlock,
   SnapshotRow,
+  YesNoWords,
 } from './types.js'
 
 import {
@@ -112,21 +113,25 @@ export function normalizeAnswer(
   }
 }
 
-/** The text of an answer in messages and snapshots: option labels, Yes/No, file names. */
+/**
+ * The text of an answer in messages and snapshots: option labels, file names, and the form's
+ * `yes` / `no` words for a checkbox (pass `fillWords(form.wording)` or the public form's wording).
+ */
 export function answerToText(
   field: InputBlock,
   value: AnswerValue,
+  words: YesNoWords,
   fieldTypes?: Record<string, FieldTypeChecks>,
 ): string {
   const custom = fieldTypes?.[field.blockType]?.toText
   if (custom) {
-    return custom(value, field)
+    return custom(value, field, words)
   }
   if (value === null || value === undefined) {
     return ''
   }
   if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No'
+    return value ? words.yes : words.no
   }
   if (typeof value === 'object' && !Array.isArray(value)) {
     return Array.isArray(value.filenames) ? value.filenames.join(', ') : ''
@@ -317,6 +322,7 @@ export function buildSnapshot(
   answers: Answers,
   fieldTypes?: Record<string, FieldTypeChecks>,
 ): SnapshotRow[] {
+  const words = fillWords(form.wording)
   const rows: SnapshotRow[] = []
   for (const { field, key, section } of getInputFields(form)) {
     if (!(key in answers) || !hasAnswer(answers[key])) {
@@ -327,7 +333,7 @@ export function buildSnapshot(
       label: getFieldLabel(field, key),
       sectionKey: getSectionKey(section),
       sectionTitle: section.title?.trim() || getSectionKey(section),
-      value: answerToText(field, answers[key], fieldTypes),
+      value: answerToText(field, answers[key], words, fieldTypes),
     })
   }
   return rows

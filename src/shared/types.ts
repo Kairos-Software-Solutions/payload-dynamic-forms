@@ -128,7 +128,14 @@ export type FormWords = {
   stepProgress: string
   success: string
   tooManyTries: string
+  /** A ticked checkbox in messages, tokens and the snapshot. */
+  yes: string
+  /** An unticked checkbox in messages, tokens and the snapshot. */
+  no: string
 }
+
+/** The words `answerToText` needs: the form's `yes` and `no`. */
+export type YesNoWords = Pick<FormWords, 'no' | 'yes'>
 
 /** The shape the rule engine needs: sections (with resolved choices) and optionally the words. */
 export type FormLike = {
@@ -179,7 +186,7 @@ export type SnapshotRow = {
 /** Checks an app adds for its own field type (the plugin's `fields` registry). */
 export type FieldTypeChecks = {
   normalize?: (raw: unknown, field: InputBlock) => AnswerValue
-  toText?: (value: AnswerValue, field: InputBlock) => string
+  toText?: (value: AnswerValue, field: InputBlock, words: YesNoWords) => string
   /** Return `true` when the value is fine, or the error words to show. */
   validate?: (value: AnswerValue, ctx: { answers: Answers; field: InputBlock }) => string | true
 }

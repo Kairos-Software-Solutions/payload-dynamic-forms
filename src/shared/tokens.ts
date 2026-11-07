@@ -3,6 +3,7 @@ import type { Answers, FieldTypeChecks, FormLike, InputBlock } from './types.js'
 import { answerToText } from './answers.js'
 import { getInputFields, getOptions, getRowLabel, hasAnswer, isChoiceBlock, toStringList } from './rules.js'
 import { getVisibility } from './steps.js'
+import { fillWords } from './words.js'
 
 export type TokenValue = boolean | null | number | string | undefined
 
@@ -77,12 +78,13 @@ export function buildMessageRows(
   fieldTypes?: Record<string, FieldTypeChecks>,
 ): MessageRow[] {
   const { answers: shown } = getVisibility(form, answers)
+  const words = fillWords(form.wording)
   const rows: MessageRow[] = []
   for (const { field, key } of getInputFields(form)) {
     if (!(key in shown) || !hasAnswer(shown[key])) {
       continue
     }
-    const value = answerToText(field, shown[key], fieldTypes)
+    const value = answerToText(field, shown[key], words, fieldTypes)
     if (!value.trim()) {
       continue
     }
@@ -116,12 +118,13 @@ export function buildTemplateValues(
   fieldTypes?: Record<string, FieldTypeChecks>,
 ): Record<string, TokenValue> {
   const { answers: shown } = getVisibility(form, answers)
+  const words = fillWords(form.wording)
   const values: Record<string, TokenValue> = { formTitle: form.title || '', ...extra }
   for (const { field, key } of getInputFields(form)) {
     if (!(key in shown)) {
       continue
     }
-    values[key] = answerToText(field, shown[key], fieldTypes)
+    values[key] = answerToText(field, shown[key], words, fieldTypes)
     if (isChoiceBlock(field)) {
       for (const [name, attr] of Object.entries(chosenAttributes(field, shown[key]))) {
         values[`${key}.${name}`] = attr

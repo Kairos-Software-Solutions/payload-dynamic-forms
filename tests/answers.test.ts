@@ -1,6 +1,18 @@
 import { describe, expect, test } from 'vitest'
 
-import { checkAnswers, type FormLike, normalizeAnswer } from '../src/exports/shared.js'
+import {
+  answerToText,
+  buildMessageRows,
+  buildSnapshot,
+  buildTemplateValues,
+  buildWhatsAppMessage,
+  checkAnswers,
+  DEFAULT_WORDS,
+  type FormLike,
+  interpolate,
+  normalizeAnswer,
+  WORD_KEYS,
+} from '../src/exports/shared.js'
 import { input } from './fixtures/forms.js'
 
 function oneField(field: ReturnType<typeof input>, extra: FormLike = {}): FormLike {
@@ -95,5 +107,43 @@ describe('answer checks', () => {
     expect(checkAnswers(form, { agree: 'false' }).fieldErrors).toEqual({ agree: 'Please agree.' })
     expect(checkAnswers(form, {}).fieldErrors).toEqual({ agree: 'Please agree.' })
     expect(checkAnswers(form, { agree: 'on' })).toMatchObject({ answers: { agree: true }, fieldErrors: {} })
+  })
+
+  test("checkbox answers use the form's yes and no words", () => {
+    // Defaults are words like every other, so they reach the Form wording fields (localized).
+    expect(DEFAULT_WORDS.yes).toBe('Yes')
+    expect(DEFAULT_WORDS.no).toBe('No')
+    expect(WORD_KEYS).toEqual(expect.arrayContaining(['yes', 'no']))
+
+    const fields = [
+      input('checkbox', 'agree', { words: { label: 'Agree', rowLabel: 'Agrees' } }),
+      input('checkbox', 'news', { words: { label: 'News', rowLabel: 'Newsletter' } }),
+    ]
+    const answers = { agree: true, news: false }
+    const form = (wording?: FormLike['wording']): FormLike => ({ sections: [{ fields, key: 's' }], title: 'T', wording })
+
+    // An older form without the words falls back to the defaults. Rows and the snapshot list
+    // answered fields only (an unticked box is no answer); tokens carry both words.
+    expect(buildSnapshot(form(), answers).map((r) => r.value)).toEqual(['Yes'])
+    expect(buildTemplateValues(form(), answers)).toMatchObject({ agree: 'Yes', news: 'No' })
+
+    const spanish = form({ no: 'No (es)', yes: 'Sí' })
+    // Snapshot (stored, and the webhook body).
+    expect(buildSnapshot(spanish, answers)).toEqual([{ fieldKey: 'agree', label: 'Agree', sectionKey: 's', sectionTitle: 's', value: 'Sí' }])
+    // Email rows and tokens.
+    const rows = buildMessageRows(spanish, answers)
+    expect(rows).toEqual([{ key: 'agree', label: 'Agrees', value: 'Sí' }])
+    const values = buildTemplateValues(spanish, answers)
+    expect(values).toMatchObject({ agree: 'Sí', news: 'No (es)' })
+    expect(interpolate('{{agree}}/{{news}}\n{{*}}', values, { rows })).toBe('Sí/No (es)\nAgrees: Sí')
+    // WhatsApp.
+    expect(buildWhatsAppMessage(spanish, answers, { template: 'News: {{news}}\n{{*}}' })).toBe('News: No (es)\n*Agrees:* Sí')
+    // Direct calls read the words they are given; an empty word is filled like the others.
+    expect(answerToText(fields[0], true, { no: 'Nein', yes: 'Ja' })).toBe('Ja')
+    expect(answerToText(fields[0], false, { no: 'Nein', yes: 'Ja' })).toBe('Nein')
+    expect(buildTemplateValues(form({ no: '', yes: '  ' }), answers)).toMatchObject({ agree: 'Yes', news: 'No' })
+    // A registered type's toText gets the same words.
+    const custom = { checkbox: { toText: (v: unknown, _f: unknown, w: { no: string; yes: string }) => (v ? `+${w.yes}` : `-${w.no}`) } }
+    expect(buildTemplateValues(spanish, answers, {}, custom)).toMatchObject({ agree: '+Sí', news: '-No (es)' })
   })
 })

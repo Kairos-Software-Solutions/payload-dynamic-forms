@@ -84,7 +84,7 @@ formsPlugin({
 
 ### Words
 
-Every word a visitor reads is a field: per question (label, hint, placeholder, errors, row label) and per form in **Form wording** (send, sending, sent, continue, back, choose one, step progress, optional hint, error prefix, closed, success, not found, required, invalid, file rejected, too many tries, security check failed, generic error). Word fields are localized when your app has localization. `getPublicForm` fills empty words from the defaults.
+Every word a visitor reads is a field: per question (label, hint, placeholder, errors, row label) and per form in **Form wording** (send, sending, sent, continue, back, choose one, step progress, optional hint, error prefix, closed, success, not found, required, invalid, file rejected, too many tries, security check failed, generic error, and the yes and no that a ticked or unticked checkbox becomes in emails, WhatsApp messages, webhooks and the snapshot). Word fields are localized when your app has localization. `getPublicForm` fills empty words from the defaults.
 
 ### Tokens
 

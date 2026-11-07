@@ -13,6 +13,7 @@ export const DEFAULT_WORDS: Readonly<FormWords> = Object.freeze({
   fileRejected: '{{label}}: this file cannot be accepted.',
   genericError: 'Something went wrong. Please try again.',
   invalid: '{{label}} is not valid.',
+  no: 'No',
   notFound: 'This form could not be found.',
   optionalHint: '(optional)',
   required: '{{label}} is required.',
@@ -23,6 +24,7 @@ export const DEFAULT_WORDS: Readonly<FormWords> = Object.freeze({
   stepProgress: 'Step {{current}} of {{total}}',
   success: 'Thanks. Your submission has been received.',
   tooManyTries: 'Too many tries. Please wait a few minutes and try again.',
+  yes: 'Yes',
 })
 
 export const WORD_KEYS = Object.keys(DEFAULT_WORDS) as Array<keyof FormWords>
