@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  @kairos-software-solutions/payload-forms: an open-source Payload CMS 3 plugin (repo kairos-payload-forms),
+  published to public npm. It ships collections, fields, validation, server endpoints and handlers,
+  delivery (store, email through payload.sendEmail, WhatsApp link, webhook) and typed helpers.
+  It ships no visitor-facing UI: each app that installs it renders its own forms.
+  Scaffolded from Payload's plugin template (create-payload-app --template plugin). Yarn 4, Node 22,
+  TypeScript, vitest; the integration tests run the template's dev app on SQLite.
+  Peer range payload ^3.92.1. Apps that use it run Next.js 16 on Cloudflare Workers (OpenNext) with D1 and R2,
+  so the runtime code must work on Workers (Web APIs, no Node-only built-ins except node:buffer).
+  This repo is public: no client names, secrets, prices or business notes in specs, code, tests or docs.
+  The planner writes changes, the reviewer approves each plan by id, the builder implements it
+  in a Cloudflare sandbox with no GitHub, npm or Cloudflare credentials, and the planner archives it after review.
+
+rules:
+  proposal:
+    - State what is out of scope.
+  specs:
+    - End every scenario with a "- **CHECK**" line saying how it is proven - a test (tests/<file> › "<name>") or a command and its expected output.
+    - Describe behaviour, inputs, outputs and error conditions; no client names, secrets or business notes.
+  tasks:
+    - Each task names the scenarios it satisfies and its done-when check.
+    - No publishing, pushing, repo creation or secrets; the planner does those after the reviewer's yes.
+
+operations:
+  apply:
+    guidance:
+      - Tick a task only after its check passed in this sandbox, and report the command and result.
+      - If a scenario cannot be met as written, stop and block the card with the question.
+  archive:
+    guidance:
+      - Archive only after the planner has reviewed the work and rerun every CHECK.
