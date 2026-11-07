@@ -21,6 +21,9 @@ let counter = 0
 export async function startApp(args: DevConfigArgs = {}): Promise<App> {
   counter += 1
   const key = `forms-test-${process.pid}-${counter}`
+  // Each app has its own fresh SQLite file; Payload skips the push when the schema equals the last
+  // one pushed in this process, so force it.
+  process.env.PAYLOAD_FORCE_DRIZZLE_PUSH = 'true'
   const config = await buildDevConfig(args)
   const payload = await getPayload({ config, key })
   const call: App['fetch'] = async (path, init = {}) => {
@@ -99,4 +102,23 @@ export async function saveError(promise: Promise<unknown>): Promise<string> {
     return [String((error as Error).message), ...(data?.errors || []).map((e) => e.message)].join('\n')
   }
   throw new Error('Expected the save to fail, but it passed.')
+}
+
+/** Posts answers as JSON to the submit endpoint. */
+export async function submit(
+  app: App,
+  slug: string,
+  answers: Record<string, unknown>,
+  { headers, locale }: { headers?: Record<string, string>; locale?: string } = {},
+): Promise<{ body: Record<string, any>; status: number }> {
+  const res = await app.fetch(`/custom-forms/submit/${slug}${locale ? `?locale=${locale}` : ''}`, {
+    headers,
+    json: answers,
+    method: 'POST',
+  })
+  return { body: (await res.json()) as Record<string, any>, status: res.status }
+}
+
+export async function countDocs(app: App, collection: string): Promise<number> {
+  return (await app.payload.count({ collection: collection as never, overrideAccess: true })).totalDocs
 }

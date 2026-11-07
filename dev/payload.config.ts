@@ -14,9 +14,6 @@ type User = { role?: string }
 /** Options the dev app (and the tests) start the plugin with. */
 export const devPluginOptions: FormsPluginOptions = {
   access: { isAdmin: (req: PayloadRequest) => (req.user as User | null)?.role === 'admin' },
-  attachmentOverrides: {
-    upload: { staticDir: path.join(os.tmpdir(), 'payload-forms-dev-attachments') },
-  },
   fields: { fileUpload: true },
   optionSources: {
     topics: {
@@ -81,10 +78,18 @@ export function buildDevConfig(args: DevConfigArgs = {}) {
     db: sqliteAdapter({ client: { url: `file:${dbFile}` }, push: true }),
     email: testEmailAdapter,
     localization: { defaultLocale: 'en', fallback: true, locales: ['en', 'es'] },
-    plugins: [formsPlugin({ ...devPluginOptions, ...args.plugin })],
+    plugins: [
+      formsPlugin({
+        // Private files next to the database file, so every app starts empty.
+        attachmentOverrides: { upload: { staticDir: `${dbFile}-files` } },
+        ...devPluginOptions,
+        ...args.plugin,
+      }),
+    ],
     secret: process.env.PAYLOAD_SECRET || 'dev-only-secret-not-for-production',
     telemetry: false,
-    typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
+    // Types are generated only on request (yarn generate:types); the plugin must compile without them.
+    typescript: { autoGenerate: false, outputFile: path.resolve(dirname, 'payload-types.ts') },
   })
 }
 

@@ -72,7 +72,7 @@ describe('option sources', () => {
       pagination: false,
       where: { _status: { equals: 'published' } },
     })
-    expect(need.options.map((o) => o.value)).toEqual(docs.map((d) => (d as { slug: string }).slug))
+    expect(need.options.map((o) => o.value)).toEqual(docs.map((d) => (d as unknown as { slug: string }).slug))
     expect(need.options.length).toBeGreaterThanOrEqual(4)
     expect(need.options.map((o) => o.label)).not.toContain('Hidden draft')
   })

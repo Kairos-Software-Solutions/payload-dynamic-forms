@@ -146,7 +146,7 @@ describe('plugin config', () => {
 
   test('partial block is deep-merged into the built-in', () => {
     const builtIn = sectionBlocks(formsPlugin({})(baseConfig())).find((b) => b.slug === 'text')!
-    const merged = sectionBlocks(formsPlugin({ fields: { text: { labels: { singular: 'Short answer' } } } })(baseConfig())).find(
+    const merged = sectionBlocks(formsPlugin({ fields: { text: { labels: { singular: 'Short answer' } as never } } })(baseConfig())).find(
       (b) => b.slug === 'text',
     )!
     expect(merged.labels!.singular).toBe('Short answer')
