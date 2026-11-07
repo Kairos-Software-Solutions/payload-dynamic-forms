@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "target": "ES2022",
+    "paths": {
+      "@payload-config": ["./dev/payload.config.ts"],
+      "@kairos-software-solutions/payload-forms": ["./src/index.ts"],
+      "@kairos-software-solutions/payload-forms/shared": ["./src/exports/shared.ts"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./dev/**/*.ts", "./dev/**/*.tsx", "./tests/**/*.ts", "./examples/**/*.tsx"],
+  "exclude": ["node_modules", "dist", "input", "dev/.next"]
+}
