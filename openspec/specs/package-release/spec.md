@@ -24,11 +24,11 @@ The README SHALL cover: what the plugin does and does not do (no visitor UI), in
 - **CHECK** tests/readme.test.ts › "readme uses the package name from package.json"
 
 ### Requirement: Licence and package metadata
-The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.1.0, `publishConfig.access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
+The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.2.0, `publishConfig.access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
 
 #### Scenario: Metadata matches
 - **WHEN** the test reads `package.json` and `LICENSE`
-- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, access is public and the version is 0.1.0
+- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, access is public and the version is 0.2.0
 - **CHECK** tests/package.test.ts › "package metadata and licence agree"
 
 ### Requirement: Package contents
@@ -48,7 +48,7 @@ A GitHub Actions workflow SHALL run on pushes and pull requests with Node 22: in
 - **CHECK** tests/workflows.test.ts › "ci runs every check without secrets"
 
 ### Requirement: Release from main, like kairos-design
-Only `.github/workflows/release.yml` SHALL publish. On a push to `main`, a `v*.*.*` tag or a manual run, on Node 24, it SHALL skip a version whose tag exists, run every check, publish with `npm publish --access public --provenance` through npm trusted publishing, and tag only after the publish succeeds. The `NPM_TOKEN` secret SHALL reach the publish step only, for the package's first publish (npm can't trust a package that doesn't exist yet).
+Only `.github/workflows/release.yml` SHALL publish. On a push to `main`, a `v*.*.*` tag or a manual run, on Node 24, it SHALL skip a version whose tag exists, run every check, publish with `npm publish --access public --provenance` through npm trusted publishing, and tag only after the publish succeeds. The workflow SHALL use no secrets: the package's trusted publisher is set on npmjs.com, so no npm token is needed.
 
 #### Scenario: New version from main is published, a tagged one is skipped
 - **WHEN** the test parses `.github/workflows/release.yml`
@@ -57,8 +57,8 @@ Only `.github/workflows/release.yml` SHALL publish. On a push to `main`, a `v*.*
 
 #### Scenario: Trusted publishing, token only for the first publish
 - **WHEN** the test parses `.github/workflows/release.yml`
-- **THEN** permissions are `contents: write` and `id-token: write`, the publish command is `npm publish --access public --provenance`, `secrets.NPM_TOKEN` appears only in the publish step's env, and no job sets `environment`
-- **CHECK** tests/workflows.test.ts › "release uses trusted publishing and the npm token only on the publish step"
+- **THEN** permissions are `contents: write` and `id-token: write`, the publish command is `npm publish --access public --provenance`, the publish step has no `env`, the text contains no `secrets.` and no `NPM_TOKEN`, setup-node sets `registry-url: https://registry.npmjs.org`, and no job sets `environment`
+- **CHECK** tests/workflows.test.ts › "release uses trusted publishing with no secrets"
 
 #### Scenario: Nothing else publishes
 - **WHEN** the test reads every file under `.github/workflows/`
