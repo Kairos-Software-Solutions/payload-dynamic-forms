@@ -1,4 +1,4 @@
-import type { Block, CollectionConfig, Endpoint, Field } from 'payload'
+import type { Block, CollectionConfig, Endpoint, Field, FieldAccess } from 'payload'
 
 import { slugField } from 'payload'
 
@@ -37,6 +37,36 @@ function wordingField(options: ResolvedOptions): Field {
     ),
     label: 'Form wording',
   }
+}
+
+/** The webhook row's admin-only secret fields; left out with `webhooks.secretsInAdmin: false`. */
+function secretFields(secret: FieldAccess): Field[] {
+  return [
+    {
+      name: 'headers',
+      type: 'array',
+      access: { create: secret, read: secret, update: secret },
+      admin: { description: 'Secret headers (admins only).', initCollapsed: true },
+      fields: [
+        {
+          type: 'row',
+          fields: [
+            { name: 'key', type: 'text', admin: { width: '50%' }, required: true },
+            { name: 'value', type: 'text', admin: { width: '50%' }, required: true },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'signingSecret',
+      type: 'text',
+      access: { create: secret, read: secret, update: secret },
+      admin: {
+        description:
+          'Signs the body: X-Form-Signature: t=<seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">, plus the Standard Webhooks headers. Empty: the plugin config\'s secret, if any (admins only).',
+      },
+    },
+  ]
 }
 
 function deliveryField(options: ResolvedOptions): Field {
@@ -154,27 +184,7 @@ function deliveryField(options: ResolvedOptions): Field {
               { name: 'retries', type: 'number', admin: { width: '30%' }, defaultValue: 0, max: 3, min: 0 },
             ],
           },
-          {
-            name: 'headers',
-            type: 'array',
-            access: { create: secret, read: secret, update: secret },
-            admin: { description: 'Secret headers (admins only).', initCollapsed: true },
-            fields: [
-              {
-                type: 'row',
-                fields: [
-                  { name: 'key', type: 'text', admin: { width: '50%' }, required: true },
-                  { name: 'value', type: 'text', admin: { width: '50%' }, required: true },
-                ],
-              },
-            ],
-          },
-          {
-            name: 'signingSecret',
-            type: 'text',
-            access: { create: secret, read: secret, update: secret },
-            admin: { description: 'Signs the body: X-Form-Signature: t=<seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>"> (admins only).' },
-          },
+          ...(options.webhooks.secretsInAdmin ? secretFields(secret) : []),
         ],
       },
       {

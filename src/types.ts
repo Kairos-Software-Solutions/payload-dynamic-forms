@@ -30,8 +30,52 @@ export type OptionSource = {
   valueField: string
 }
 
+/** What a `webhooks.signingSecret` or `webhooks.headers` function receives for each webhook it is asked about. */
+export type WebhookConfigArgs = {
+  form: PublicForm
+  req: PayloadRequest
+  webhook: { id: null | string; label: null | string; url: string }
+}
+
+/** A value, or a (possibly async) function of the form, request and webhook returning one. */
+export type WebhookConfigValue<T> =
+  | ((args: WebhookConfigArgs) => Promise<T | undefined> | T | undefined)
+  | T
+
+export type WebhookOptions = {
+  /**
+   * Request headers for every webhook, e.g. an API key from an env var. The webhook's own admin
+   * secret headers replace a config header of the same name (any case); neither can replace
+   * `Content-Type`'s place first or the signature headers.
+   */
+  headers?: WebhookConfigValue<Record<string, string>>
+  /**
+   * `true` refuses to send a webhook that has no signing secret from either source: no request is
+   * made and its delivery is logged as failed. Default `false`: it is sent unsigned, with one
+   * warning per webhook per server process.
+   */
+  requireSignature?: boolean
+  /**
+   * Default `true`: each webhook row has the admin-only `signingSecret` and secret `headers`
+   * fields, as in 0.1.0. `false` leaves both fields out of the forms collection, so secrets come
+   * only from this config and none is stored in the database. Turning it off drops the column
+   * and the headers table at the app's next migration; stored values are lost.
+   */
+  secretsInAdmin?: boolean
+  /**
+   * Signs any webhook whose admin signing secret is empty (the admin secret wins). A string, or a
+   * function returning one, e.g. per webhook label. A `whsec_…` secret also keys the Standard
+   * Webhooks signature with its decoded bytes.
+   */
+  signingSecret?: WebhookConfigValue<string>
+}
+
 export type FormsPluginOptions = {
-  /** Who may read and write webhook secrets, update or delete submissions and resend. Default: any logged-in user. */
+  /**
+   * Who may read and write webhook secrets in the admin, update or delete submissions and resend.
+   * Default: any logged-in user. Prefer `webhooks.signingSecret` / `webhooks.headers` from env
+   * vars (with `webhooks.secretsInAdmin: false`) over secrets stored in forms.
+   */
   access?: { isAdmin?: (req: PayloadRequest) => boolean }
   /** Overrides for the attachments collection (when the plugin creates it). */
   attachmentOverrides?: CollectionOverride
@@ -91,6 +135,8 @@ export type FormsPluginOptions = {
       req: PayloadRequest
     }) => Promise<string | undefined> | string | undefined
   }
+  /** Webhook secrets and headers from the config, and whether signing is required. */
+  webhooks?: WebhookOptions
   /** Default words for new forms, merged over `DEFAULT_WORDS`. */
   words?: Partial<FormWords>
 }
@@ -111,5 +157,9 @@ export type ResolvedOptions = {
   rateLimit: { max: number; windowSeconds: number } | null
   slugs: { attachments: string; forms: string; submissions: string }
   turnstile: { enabled: boolean; fieldName: string; secretKey: string }
+  webhooks: {
+    requireSignature: boolean
+    secretsInAdmin: boolean
+  } & Pick<WebhookOptions, 'headers' | 'signingSecret'>
   words: FormWords
 } & Pick<FormsPluginOptions, 'beforeEmail' | 'delivery' | 'optionSources' | 'whatsapp'>

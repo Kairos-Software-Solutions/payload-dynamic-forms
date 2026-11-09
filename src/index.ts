@@ -53,6 +53,12 @@ export function resolveOptions(options: FormsPluginOptions = {}): ResolvedOption
       fieldName: options.turnstile?.fieldName || 'cf-turnstile-response',
       secretKey: options.turnstile?.secretKey || '',
     },
+    webhooks: {
+      headers: options.webhooks?.headers,
+      requireSignature: options.webhooks?.requireSignature === true,
+      secretsInAdmin: options.webhooks?.secretsInAdmin !== false,
+      signingSecret: options.webhooks?.signingSecret,
+    },
     whatsapp: options.whatsapp,
     words: { ...DEFAULT_WORDS, ...options.words },
   }

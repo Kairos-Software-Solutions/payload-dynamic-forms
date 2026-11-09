@@ -181,6 +181,52 @@ describe('plugin config', () => {
     expect(JSON.stringify(forms.versions)).not.toContain('schedulePublish')
   })
 
+  test('secretsInAdmin false leaves the secret fields out', () => {
+    const rowFields = (config: Config): Field[] => {
+      let found: Field[] | undefined
+      walk(collection(config, 'custom-forms').fields, (field, path) => {
+        if (field.type === 'array' && path === 'delivery.webhooks') {
+          found = field.fields
+        }
+      })
+      expect(found).toBeDefined()
+      return found!
+    }
+    // The row's own fields (rows flattened, nested fields left out).
+    const named = (fields: Field[]) => {
+      const out = new Map<string, Field>()
+      for (const field of fields) {
+        for (const leaf of field.type === 'row' ? field.fields : [field]) {
+          if ('name' in leaf) {
+            out.set(leaf.name, leaf)
+          }
+        }
+      }
+      return out
+    }
+
+    const off = named(rowFields(formsPlugin({ webhooks: { secretsInAdmin: false } })(baseConfig())))
+    expect(off.has('signingSecret')).toBe(false)
+    expect(off.has('headers')).toBe(false)
+    // The other webhook fields stay.
+    expect([...off.keys()]).toEqual(expect.arrayContaining(['label', 'method', 'enabled', 'url', 'payloadMode', 'timeoutMs', 'retries']))
+
+    const isAdmin = vi.fn(() => false)
+    const on = named(rowFields(formsPlugin({ access: { isAdmin } })(baseConfig())))
+    for (const name of ['signingSecret', 'headers']) {
+      const field = on.get(name) as { access?: Record<string, (args: unknown) => boolean> } | undefined
+      expect(field, name).toBeDefined()
+      for (const op of ['create', 'read', 'update']) {
+        const check = field!.access?.[op]
+        expect(typeof check, `${name}.${op}`).toBe('function')
+        isAdmin.mockReturnValueOnce(false)
+        expect(check!({ req: { user: { id: 1 } } }), `${name}.${op} non-admin`).toBe(false)
+        isAdmin.mockReturnValueOnce(true)
+        expect(check!({ req: { user: { id: 1 } } }), `${name}.${op} admin`).toBe(true)
+      }
+    }
+  })
+
   test("attachments can use the app's upload collection", () => {
     const input: Config = {
       ...baseConfig(),
