@@ -21,7 +21,7 @@
 
 ## 4. Final checks
 
-- [ ] 4.1 Run once, in order: `yarn install --immutable`, `yarn lint` (no errors), `yarn typecheck`, `yarn test`, `yarn build`, the release workflow's pack check (`npm pack --dry-run --json`, only `dist/`, `package.json`, `README.md`, `LICENSE`), and `yarn spec:validate`. Done when each exits 0. Report the test count and the lint warning count (0.1.0 had 46 warnings; no new warnings in touched files).
+- [x] 4.1 Run once, in order: `yarn install --immutable`, `yarn lint` (no errors), `yarn typecheck`, `yarn test`, `yarn build`, the release workflow's pack check (`npm pack --dry-run --json`, only `dist/`, `package.json`, `README.md`, `LICENSE`), and `yarn spec:validate`. Done when each exits 0. Report the test count and the lint warning count (0.1.0 had 46 warnings; no new warnings in touched files).
 
 ## Workflow follow-up
 
