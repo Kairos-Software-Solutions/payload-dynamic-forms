@@ -128,6 +128,8 @@ export type FormsPluginOptions = {
   submissionOverrides?: CollectionOverride
   /** Cloudflare Turnstile checked on the server. On with no secret refuses every submission. */
   turnstile?: { enabled?: boolean; fieldName?: string; secretKey?: string }
+  /** Webhook secrets and headers from the config, and whether signing is required. */
+  webhooks?: WebhookOptions
   whatsapp?: {
     /** Number for forms that have none. */
     number?: (args: {
@@ -135,8 +137,6 @@ export type FormsPluginOptions = {
       req: PayloadRequest
     }) => Promise<string | undefined> | string | undefined
   }
-  /** Webhook secrets and headers from the config, and whether signing is required. */
-  webhooks?: WebhookOptions
   /** Default words for new forms, merged over `DEFAULT_WORDS`. */
   words?: Partial<FormWords>
 }

@@ -2,7 +2,7 @@ import type { Payload, PayloadRequest, SendEmailOptions } from 'payload'
 
 import type { EmailOutput, FormDelivery, WebhookOutput } from '../server/forms.js'
 import type { Answers, PublicForm, SnapshotRow, SubmissionStatus } from '../shared/types.js'
-import type { ResolvedOptions } from '../types.js'
+import type { ResolvedOptions, WebhookConfigArgs, WebhookConfigValue } from '../types.js'
 
 import { isValidEmail } from '../shared/answers.js'
 import { buildMessageRows, buildTemplateValues, interpolate } from '../shared/tokens.js'
@@ -102,8 +102,48 @@ async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput): Promise<
   }
 }
 
+/** Webhooks already warned about being unsigned in this server process (form id + output id). */
+const warnedUnsigned = new Set<string>()
+
+export const NO_SECRET_ERROR = 'Webhook not sent: no signing secret.'
+
+async function configValue<T>(value: undefined | WebhookConfigValue<T>, args: WebhookConfigArgs): Promise<T | undefined> {
+  return typeof value === 'function'
+    ? await (value as (args: WebhookConfigArgs) => Promise<T | undefined> | T | undefined)(args)
+    : value
+}
+
+function nonEmpty(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined
+}
+
+/** The webhook's admin secret when non-empty, else the config one (value or function). */
+async function resolveSigningSecret(ctx: DeliveryContext, output: WebhookOutput, args: WebhookConfigArgs): Promise<string | undefined> {
+  return nonEmpty(output.signingSecret) ?? nonEmpty(await configValue(ctx.options.webhooks?.signingSecret, args))
+}
+
 async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Promise<LogEntry> {
   const at = new Date().toISOString()
+  const base = { at, kind: 'webhook' as const, label: output.label || null, outputId: output.id || null, target: output.url || null }
+  const args: WebhookConfigArgs = {
+    form: ctx.form,
+    req: ctx.req,
+    webhook: { id: output.id || null, label: output.label || null, url: String(output.url || '') },
+  }
+  const signingSecret = await resolveSigningSecret(ctx, output, args)
+  if (!signingSecret) {
+    if (ctx.options.webhooks?.requireSignature) {
+      return { ...base, error: NO_SECRET_ERROR, result: 'failed', tries: 0 }
+    }
+    const key = `${String(ctx.form.id)}:${output.id ?? output.url ?? ''}`
+    if (!warnedUnsigned.has(key)) {
+      warnedUnsigned.add(key)
+      ctx.payload?.logger?.warn(
+        `payload-dynamic-forms: webhook "${output.label || ''}" on form "${ctx.form.slug}" is sent unsigned; set a signing secret.`,
+      )
+    }
+  }
+  const configHeaders = (await configValue(ctx.options.webhooks?.headers, args)) || null
   const body =
     output.payloadMode === 'answersOnly'
       ? { answers: ctx.answers }
@@ -116,15 +156,11 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
             snapshot: ctx.snapshot,
           },
         }
-  const result = await sendWebhook(output, body)
+  const result = await sendWebhook({ ...output, configHeaders, signingSecret }, body)
   return {
-    at,
+    ...base,
     error: result.ok ? null : result.error || 'Webhook failed.',
-    kind: 'webhook',
-    label: output.label || null,
-    outputId: output.id || null,
     result: result.ok ? 'success' : 'failed',
-    target: output.url || null,
     tries: result.tries,
   }
 }
