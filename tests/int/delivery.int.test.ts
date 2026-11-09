@@ -24,6 +24,7 @@ let adminToken: string
 let editorToken: string
 const scheduled: Array<() => Promise<void>> = []
 const hookCalls: string[] = []
+const hookIds: Array<null | string> = []
 let hookStatus = 200
 
 beforeAll(async () => {
@@ -42,6 +43,7 @@ beforeAll(async () => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url.startsWith('https://hooks.example.com/')) {
       hookCalls.push(url)
+      hookIds.push(new Headers(init?.headers).get('webhook-id'))
       return Promise.resolve(new Response(null, { status: hookStatus }))
     }
     return realFetch(input, init)
@@ -51,6 +53,7 @@ beforeAll(async () => {
 beforeEach(() => {
   outbox.length = 0
   hookCalls.length = 0
+  hookIds.length = 0
   hookStatus = 200
   emailControl.fail = false
 })
@@ -264,6 +267,24 @@ describe('delivery', () => {
     const sub = await readSubmission(app, body.submissionId)
     expect(sub.status).toBe('processed')
     expect(sub.deliveryLog.map((e: Doc) => `${e.kind}:${e.result}`)).toEqual(['email:success', 'webhook:failed', 'webhook:success'])
+  })
+
+  test('resend keeps the webhook-id', async () => {
+    const form = await createForm(app, { delivery: withHook, sections: contact })
+    hookStatus = 500
+    const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
+    expect(hookIds).toHaveLength(1)
+    const failedId = hookIds[0]
+    const sub = await readSubmission(app, body.submissionId)
+    const outputId = sub.deliveryLog.find((e: Doc) => e.kind === 'webhook').outputId
+    expect(failedId).toBe(`msg_${body.submissionId}_${outputId}`.replace(/\W/g, '_'))
+
+    hookIds.length = 0
+    hookStatus = 200
+    const res = await app.fetch(`/custom-form-submissions/${body.submissionId}/resend`, { method: 'POST', token: adminToken })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, resent: 1, status: 'processed' })
+    expect(hookIds).toEqual([failedId])
   })
 
   test('sidebar tick resends and clears itself', async () => {
