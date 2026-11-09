@@ -102,7 +102,7 @@ describe('workflows', () => {
     expect(tagIndex).toBe(steps.length - 1)
   })
 
-  test('release uses trusted publishing and the npm token only on the publish step', () => {
+  test('release uses trusted publishing with no secrets', () => {
     const { index, jobs, steps, text, workflow } = release()
     expect(workflow.permissions).toEqual({ contents: 'write', 'id-token': 'write' })
     for (const job of jobs) {
@@ -111,15 +111,11 @@ describe('workflows', () => {
     expect(text).not.toMatch(/^\s*environment:/m)
     const publishIndex = index((s) => !!s.run?.includes('npm publish'))
     expect(steps[publishIndex].run).toBe('npm publish --access public --provenance')
-    expect(steps[publishIndex].env).toEqual({ NODE_AUTH_TOKEN: '${{ secrets.NPM_TOKEN }}' })
-    // The token appears once, in the publish step's env, and no other secret is used.
-    expect(text.match(/secrets\.NPM_TOKEN/g)).toHaveLength(1)
-    expect(text.match(/secrets\./g)).toHaveLength(1)
-    steps.forEach((step, i) => {
-      if (i !== publishIndex) {
-        expect(JSON.stringify(step), step.name).not.toContain('secrets.')
-      }
-    })
+    // The trusted publisher on npmjs.com replaces the token: no env on the publish step.
+    expect(steps[publishIndex]).not.toHaveProperty('env')
+    expect(text).not.toContain('secrets.')
+    expect(text).not.toContain('NPM_TOKEN')
+    expect(text).not.toContain('NODE_AUTH_TOKEN')
     // setup-node writes the registry .npmrc that npm publish reads.
     const node = steps.find((s) => s.uses?.startsWith('actions/setup-node'))
     expect(node?.with?.['registry-url']).toBe('https://registry.npmjs.org')

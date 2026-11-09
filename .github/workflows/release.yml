@@ -3,9 +3,8 @@ name: Release
 # Publishes each new version from main, the way the kairos-design package does:
 # bump "version" in package.json on main, and this workflow runs every check,
 # publishes to public npm and tags v<version>. A version whose tag exists is skipped.
-# Publishing uses npm trusted publishing (OIDC). npm can't trust a package that doesn't
-# exist yet, so the first publish (0.1.0) uses the NPM_TOKEN secret; it is deleted once
-# the trusted publisher is set up on npmjs.com.
+# Publishing uses npm trusted publishing (OIDC): the trusted publisher is set on
+# npmjs.com, so the workflow uses no secrets and no npm token.
 on:
   push:
     branches:
@@ -113,13 +112,11 @@ jobs:
         run: |
           npm pack --dry-run --json | node -e "const f=JSON.parse(require('fs').readFileSync(0))[0].files.map(x=>x.path);const bad=f.filter(p=>!/^(dist\/|package\.json$|README\.md$|LICENSE$)/.test(p));if(bad.length){console.error(bad);process.exit(1)}console.log('ok',f.length)"
 
-      # Trusted publishing (OIDC) once the trusted publisher is set on npmjs.com.
-      # NPM_TOKEN is only for the first publish, before the package exists.
+      # Trusted publishing (OIDC, id-token: write): npm checks this workflow against the
+      # trusted publisher set on npmjs.com and adds provenance. No token.
       - name: Publish
         if: steps.release.outputs.publish == 'true'
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Tagged after the publish (kairos-design tags first): a failed publish leaves no
       # tag, so rerunning the workflow tries the same version again.

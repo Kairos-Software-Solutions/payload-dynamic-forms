@@ -10,7 +10,7 @@
 
 ## 3. Release, version and docs
 
-- [ ] 3.1 Remove the publish step's `env` block from `.github/workflows/release.yml`. Reword the comments at the top and above Publish so they no longer mention `NPM_TOKEN` (design 8). Rename and rewrite the workflows test to match. Covers "Trusted publishing, token only for the first publish". Done when tests/workflows.test.ts › "release uses trusted publishing with no secrets" passes, the other two release tests pass, and `grep -c NPM_TOKEN .github/workflows/release.yml` prints 0.
+- [x] 3.1 Remove the publish step's `env` block from `.github/workflows/release.yml`. Reword the comments at the top and above Publish so they no longer mention `NPM_TOKEN` (design 8). Rename and rewrite the workflows test to match. Covers "Trusted publishing, token only for the first publish". Done when tests/workflows.test.ts › "release uses trusted publishing with no secrets" passes, the other two release tests pass, and `grep -c NPM_TOKEN .github/workflows/release.yml` prints 0.
 - [ ] 3.2 Set `version` to `0.2.0` in `package.json` (design 9). In `README.md`:
     - Add a `webhooks` row to the options table.
     - Rewrite "Webhook signature": which secret wins and the header order; the 0.1.0 `X-Form-Signature` verifier (kept as is); a Standard Webhooks section with the `webhook-*` headers, `webhook-id` as an idempotency key, a `standardwebhooks` verify example with a `whsec_` secret, and a one-line way to make one (`'whsec_' + base64 of 32 random bytes`); and `requireSignature` plus the unsigned warning.
