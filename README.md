@@ -62,7 +62,8 @@ Every option is optional.
 | `whatsapp.number` | – | `({ req, form }) => string` for forms without their own number. |
 | `delivery.schedule` | – | Runs email and webhooks after the reply (see [Delivery after the reply](#delivery-after-the-reply)). |
 | `beforeEmail` | – | `(message, { form, answers, req }) => message`: wrap the html in your layout, add headers. |
-| `access.isAdmin` | any logged-in user | Who reads and writes webhook secrets, updates or deletes submissions and resends. |
+| `webhooks` | admin secrets on, signing optional | `{ signingSecret?, headers?, secretsInAdmin?, requireSignature? }`: webhook secrets and headers from your config (values or `({ form, req, webhook }) => …`), whether the admin has secret fields, and whether unsigned webhooks are refused (see [Webhook signature](#webhook-signature)). |
+| `access.isAdmin` | any logged-in user | Who reads and writes webhook secrets in the admin, updates or deletes submissions and resends. Prefer secrets from your config (`webhooks.signingSecret` from an env var, with `webhooks.secretsInAdmin: false`): admin secrets are stored as plain text in your database and its backups. |
 | `metadata` | `{ ip: false, userAgent: true }` | What a submission keeps about the request. |
 
 ### Field types
@@ -106,6 +107,8 @@ To use an upload collection of your own instead, pass `attachments: { collection
 ## Migrations
 
 The plugin adds collections, so apps on Postgres or SQLite/D1 with migrations run `payload migrate:create` after installing it (and after changing `slugs`, `fields` or `optionSources`), then `payload migrate`. Default slugs differ from the official form builder's `forms` and `form-submissions`, so both can run while you move over.
+
+Setting `webhooks.secretsInAdmin: false` also changes the schema: see [Secrets from your config](#secrets-from-your-config).
 
 ## Switching off
 
@@ -352,7 +355,31 @@ Each email or webhook try of a stored submission adds a log entry (kind, output,
 
 ## Webhook signature
 
-Webhooks send JSON (full: form, submission id, snapshot, attachments and answers; or answers only) by POST, PUT or PATCH with their secret headers, a timeout (default 8 s) and up to 3 retries (pauses 0.5 s, 1 s, 2 s). With a signing secret they carry `X-Form-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`. Check it on the receiving side:
+Webhooks send JSON (full: form, submission id, snapshot, attachments and answers; or answers only) by POST, PUT or PATCH with their headers, a timeout (default 8 s) and up to 3 retries (pauses 0.5 s, 1 s, 2 s).
+
+### Secrets from your config
+
+A webhook's signing secret and secret headers can come from two places: the admin-only fields on each webhook row, or the plugin config. Keep them in env vars when you can:
+
+```ts
+formsPlugin({
+  webhooks: {
+    // A string, or a function of { form, req, webhook: { id, label, url } } (may be async).
+    signingSecret: ({ webhook }) => (webhook.label === 'CRM' ? process.env.CRM_WEBHOOK_SECRET : process.env.FORMS_WEBHOOK_SECRET),
+    headers: { 'X-Api-Key': process.env.CRM_API_KEY! },
+    secretsInAdmin: false,
+    requireSignature: true,
+  },
+})
+```
+
+- **Which secret wins:** the webhook's own admin `signingSecret`, when it is not empty, wins over `webhooks.signingSecret`; the config secret is the fallback. An empty string or `undefined` from either means no secret. So an old admin secret left on a form keeps signing even after you set a config one: clear it, or turn the fields off.
+- **Header order:** `Content-Type: application/json`, then `webhooks.headers`, then the webhook's admin secret headers, then the signature headers. A later header replaces an earlier one of the same name (any case), so admin headers override config ones and nothing overrides `X-Form-Signature` or the `webhook-*` headers.
+- **`secretsInAdmin: false`** leaves the signing secret and secret header fields out of the forms collection (not hidden: gone), so no secret is stored in your database. This changes the schema: your next migration drops the signing-secret column and the webhook headers table, and **any secrets stored there are lost**. Move them to your config first.
+
+### Checking `X-Form-Signature`
+
+A signed webhook carries `X-Form-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`, keyed by the whole secret string, as in 0.1.0. Check it on the receiving side:
 
 ```ts
 import { createHmac, timingSafeEqual } from 'node:crypto'
@@ -365,6 +392,36 @@ export function verifyFormSignature(header: string, rawBody: string, secret: str
   return expected.length === parts.v1?.length && timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1))
 }
 ```
+
+### Standard Webhooks
+
+Webhooks also carry the [Standard Webhooks](https://www.standardwebhooks.com/) headers next to `X-Form-Signature`, so receivers can use a ready-made verifier:
+
+- `webhook-id` on every webhook, signed or not: `msg_<submissionId>_<outputId>` for a stored submission, else `msg_` plus a random id. It is the same on every retry and on every resend of a stored submission, so use it as an idempotency key to skip a delivery you already handled.
+- `webhook-timestamp` (unix seconds, the same `t` as in `X-Form-Signature`) and `webhook-signature: v1,<base64 HMAC-SHA256 of "<id>.<timestamp>.<raw body>">` on signed webhooks.
+
+The HMAC key is the decoded bytes of a `whsec_` secret, or the secret's UTF-8 bytes otherwise. To verify with the [`standardwebhooks`](https://www.npmjs.com/package/standardwebhooks) library, use a `whsec_` secret (`'whsec_' + base64 of 32 random bytes`):
+
+```sh
+node -e "console.log('whsec_' + require('crypto').randomBytes(32).toString('base64'))"
+```
+
+```ts
+import { Webhook } from 'standardwebhooks'
+
+// Throws when the signature or timestamp doesn't check out; returns the parsed body.
+const payload = new Webhook(process.env.FORMS_WEBHOOK_SECRET!).verify(rawBody, {
+  'webhook-id': request.headers.get('webhook-id')!,
+  'webhook-timestamp': request.headers.get('webhook-timestamp')!,
+  'webhook-signature': request.headers.get('webhook-signature')!,
+})
+```
+
+### Unsigned webhooks
+
+A webhook with no secret from either place is sent unsigned, and the server logs one warning per webhook per process: `payload-dynamic-forms: webhook "<label>" on form "<slug>" is sent unsigned; set a signing secret.` With `webhooks.requireSignature: true` it isn't sent at all: its delivery log entry is `failed` with 0 tries and the error `Webhook not sent: no signing secret.`, and the status and resend follow the usual rules.
+
+New in 0.2.0: receivers see the `webhook-*` headers (and `webhook-id` on unsigned webhooks too). A receiver that refuses unknown headers needs to allow them.
 
 ## CSV export
 

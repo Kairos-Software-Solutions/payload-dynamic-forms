@@ -1,6 +1,6 @@
 {
   "name": "payload-dynamic-forms",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Forms for Payload CMS 3: sections, steps, show/hide rules checked on the server, spam checks, attachments, email, WhatsApp and webhook delivery. No visitor UI.",
   "license": "MIT",
   "author": "Kairos Software Solutions",
