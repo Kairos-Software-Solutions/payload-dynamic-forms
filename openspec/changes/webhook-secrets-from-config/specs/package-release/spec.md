@@ -1,5 +1,13 @@
 ## MODIFIED Requirements
 
+### Requirement: Licence and package metadata
+The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.2.0, `publishConfig.access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
+
+#### Scenario: Metadata matches
+- **WHEN** the test reads `package.json` and `LICENSE`
+- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, access is public and the version is 0.2.0
+- **CHECK** tests/package.test.ts › "package metadata and licence agree"
+
 ### Requirement: Release from main, like kairos-design
 Only `.github/workflows/release.yml` SHALL publish. On a push to `main`, a `v*.*.*` tag or a manual run, on Node 24, it SHALL skip a version whose tag exists, run every check, publish with `npm publish --access public --provenance` through npm trusted publishing, and tag only after the publish succeeds. The workflow SHALL use no secrets: the package's trusted publisher is set on npmjs.com, so no npm token is needed.
 

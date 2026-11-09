@@ -46,7 +46,7 @@
     - Runtime code stays Web Crypto plus `btoa`/`atob` (Workers-safe; `tests/workers-safe.test.ts` already guards this).
 7. **`standardwebhooks` as a devDependency, exact pin `1.1.1`.** It is only used by the tests, which prove interop by verifying a request with the reference library. It is never imported by `src/`, so it doesn't ship.
 8. **Release without a token.** Trusted publishing is configured on npmjs.com and the `NPM_TOKEN` secret has been deleted, so the publish step loses its `env` block and `release.yml` uses no secrets at all. The 0.2.0 release is then the first real proof of OIDC publishing. If it fails, no tag is created and the workflow can be rerun (existing behaviour).
-9. **Version 0.2.0.** These are new options, so it's a minor bump under 0.x. Nothing is removed.
+9. **Version 0.2.0.** These are new options, so it's a minor bump under 0.x. Nothing is removed. The package-release requirement "Licence and package metadata" names the version, so it is modified to 0.2.0 too (plan r1: the first plan missed it; the builder found it and updated `tests/package.test.ts` under task 3.2).
 
 ## Payload plugins
 
