@@ -6,7 +6,7 @@ import type { ResolvedOptions, WebhookConfigArgs, WebhookConfigValue } from '../
 
 import { isValidEmail } from '../shared/answers.js'
 import { buildMessageRows, buildTemplateValues, interpolate } from '../shared/tokens.js'
-import { sendWebhook } from './webhook.js'
+import { sendWebhook, webhookMessageId } from './webhook.js'
 
 export type LogEntry = {
   at: string
@@ -156,7 +156,9 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
             snapshot: ctx.snapshot,
           },
         }
-  const result = await sendWebhook({ ...output, configHeaders, signingSecret }, body)
+  // Stable for a stored submission (retries and resends); random once per delivery otherwise.
+  const webhookId = webhookMessageId(ctx.submissionId, output.id)
+  const result = await sendWebhook({ ...output, configHeaders, signingSecret, webhookId }, body)
   return {
     ...base,
     error: result.ok ? null : result.error || 'Webhook failed.',

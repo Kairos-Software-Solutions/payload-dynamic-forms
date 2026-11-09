@@ -1,4 +1,4 @@
-import { hmacSha256Hex } from '../security/crypto.js'
+import { hmacSha256Base64, hmacSha256Hex, standardWebhooksKey } from '../security/crypto.js'
 
 export type WebhookSettings = {
   /**
@@ -14,6 +14,11 @@ export type WebhookSettings = {
   signingSecret?: null | string
   timeoutMs?: null | number
   url?: null | string
+  /**
+   * The Standard Webhooks `webhook-id`, the same on every try. Missing: `msg_` plus a random id
+   * made once per call. Characters outside `[A-Za-z0-9_]` become `_`.
+   */
+  webhookId?: null | string
 }
 
 export type WebhookResult = { error?: string; ok: boolean; status?: number; tries: number }
@@ -27,6 +32,15 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export async function signWebhookBody(secret: string, body: string, now = Date.now()): Promise<string> {
   const t = Math.floor(now / 1000)
   return `t=${t},v1=${await hmacSha256Hex(secret, `${t}.${body}`)}`
+}
+
+/** `msg_<submissionId>_<outputId>` when both exist, else `msg_` plus a random id; only `[A-Za-z0-9_]`. */
+export function webhookMessageId(submissionId?: null | number | string, outputId?: null | string): string {
+  const raw =
+    submissionId !== undefined && submissionId !== null && submissionId !== '' && outputId
+      ? `msg_${submissionId}_${outputId}`
+      : `msg_${crypto.randomUUID().replace(/-/g, '')}`
+  return raw.replace(/\W/g, '_')
 }
 
 /**
@@ -59,6 +73,8 @@ export async function sendWebhook(settings: WebhookSettings, body: unknown): Pro
     header?.key && header.value ? [[header.key, header.value]] : [],
   )
   const secret = settings.signingSecret || ''
+  const webhookId = settings.webhookId ? settings.webhookId.replace(/\W/g, '_') : webhookMessageId()
+  const key = secret ? standardWebhooksKey(secret) : null
   let lastError = ''
   let lastStatus: number | undefined
   let tries = 0
@@ -67,9 +83,16 @@ export async function sendWebhook(settings: WebhookSettings, body: unknown): Pro
       await sleep(RETRY_PAUSES_MS[Math.min(attempt - 1, RETRY_PAUSES_MS.length - 1)])
     }
     tries += 1
-    const signature: Array<[string, string]> = []
-    if (secret) {
-      signature.push(['X-Form-Signature', await signWebhookBody(secret, json)])
+    // Signature headers come last: neither config nor admin headers can replace them.
+    const signature: Array<[string, string]> = [['webhook-id', webhookId]]
+    if (secret && key) {
+      const now = Date.now()
+      const t = Math.floor(now / 1000)
+      signature.push(
+        ['X-Form-Signature', await signWebhookBody(secret, json, now)],
+        ['webhook-timestamp', String(t)],
+        ['webhook-signature', `v1,${await hmacSha256Base64(key, `${webhookId}.${t}.${json}`)}`],
+      )
     }
     const headers = mergeHeaders(configHeaders, adminHeaders, signature)
     const controller = new AbortController()

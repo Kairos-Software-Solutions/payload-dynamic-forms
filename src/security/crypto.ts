@@ -19,3 +19,41 @@ export async function hmacSha256Hex(secret: string, text: string): Promise<strin
   )
   return toHex(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(text)))
 }
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+/** Base64 HMAC-SHA256 of `text` keyed by raw bytes. */
+export async function hmacSha256Base64(key: Uint8Array, text: string): Promise<string> {
+  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return bytesToBase64(new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(text))))
+}
+
+/**
+ * The Standard Webhooks HMAC key: the base64-decoded bytes after the prefix of a `whsec_` secret,
+ * else the secret's UTF-8 bytes.
+ */
+export function standardWebhooksKey(secret: string): Uint8Array {
+  if (secret.startsWith('whsec_')) {
+    try {
+      return base64ToBytes(secret.slice('whsec_'.length))
+    } catch {
+      throw new Error('The signing secret starts with whsec_ but the rest is not valid base64.')
+    }
+  }
+  return new TextEncoder().encode(secret)
+}

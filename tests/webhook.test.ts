@@ -1,4 +1,5 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
+import { Webhook } from 'standardwebhooks'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import type { FormDelivery } from '../src/server/forms.js'
@@ -292,5 +293,101 @@ describe('webhook secrets from the plugin config', () => {
     expect(entries[1]).toMatchObject({ label: 'Signed', result: 'success', tries: 1 })
     expect(signedWith(calls[0], 'admin-secret-for-tests')).toBe(true)
     expect(statusFromLog(entries)).toBe('partlyFailed')
+  })
+})
+
+/**
+ * Runs fake timers until `promise` settles. Signing waits on Web Crypto (real async work), so a
+ * single runAllTimersAsync can return before the next retry pause is scheduled.
+ */
+async function settle<T>(promise: Promise<T>): Promise<T> {
+  let done = false
+  void promise.finally(() => {
+    done = true
+  })
+  while (!done) {
+    await vi.advanceTimersByTimeAsync(100)
+    await new Promise((resolve) => setImmediate(resolve))
+  }
+  return promise
+}
+
+describe('standard webhooks headers', () => {
+  test('standard webhooks library verifies a whsec secret', async () => {
+    const calls = stubFetch(() => new Response(null, { status: 200 }))
+    const secret = `whsec_${randomBytes(32).toString('base64')}`
+    const [entry] = await deliverAll([{ id: 'std-1', label: 'Receiver', signingSecret: secret, url: 'https://hooks.example.com/std' }])
+    expect(entry).toMatchObject({ result: 'success' })
+    const [call] = calls
+    const body = call.init.body as string
+    const headers = Object.fromEntries(call.headers.entries())
+    expect(headers['webhook-id']).toBe('msg_7_std_1')
+    expect(new Webhook(secret).verify(body, headers)).toEqual(JSON.parse(body))
+    // A different secret is refused.
+    expect(() => new Webhook(`whsec_${randomBytes(32).toString('base64')}`).verify(body, headers)).toThrow()
+    const t = /^t=(\d+),/.exec(headers['x-form-signature'])![1]
+    expect(headers['webhook-timestamp']).toBe(t)
+    // X-Form-Signature keeps keying with the whole secret string, as in 0.1.0.
+    expect(signedWith(call, secret)).toBe(true)
+  })
+
+  test('plain secret signs standard webhooks with its utf-8 bytes', async () => {
+    const calls = stubFetch(() => new Response(null, { status: 200 }))
+    await sendWebhook(
+      { signingSecret: 'plain-secret-for-tests', url: 'https://hooks.example.com/plain', webhookId: 'msg_plain_1' },
+      { answers: { name: 'Ana' } },
+    )
+    const [call] = calls
+    const id = call.headers.get('webhook-id')!
+    const ts = call.headers.get('webhook-timestamp')!
+    expect(id).toBe('msg_plain_1')
+    expect(ts).toMatch(/^\d+$/)
+    const expected = createHmac('sha256', Buffer.from('plain-secret-for-tests', 'utf8'))
+      .update(`${id}.${ts}.${call.init.body as string}`)
+      .digest('base64')
+    expect(call.headers.get('webhook-signature')).toBe(`v1,${expected}`)
+    expect(signedWith(call, 'plain-secret-for-tests')).toBe(true)
+  })
+
+  test('webhook-id is stable across retries and sent without a secret', async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_600, toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const statuses = [500, 500, 200]
+    const calls = stubFetch((_call, i) => new Response(null, { status: statuses[i] ?? 500 }))
+    const pending = deliverAll(
+      [{ id: 'stable-1', label: 'CRM', retries: 2, signingSecret: 'admin-secret-for-tests', url: 'https://hooks.example.com/crm' }],
+      { submissionId: 41 },
+    )
+    const [entry] = await settle(pending)
+    expect(entry).toMatchObject({ result: 'success', tries: 3 })
+    expect(calls).toHaveLength(3)
+    expect(calls.map((c) => c.headers.get('webhook-id'))).toEqual(['msg_41_stable_1', 'msg_41_stable_1', 'msg_41_stable_1'])
+    // Each try signs again with its own time.
+    const stamps = calls.map((c) => c.headers.get('webhook-timestamp'))
+    const seconds = stamps.map(Number)
+    expect(seconds[0]).toBe(1_800_000_000)
+    expect(seconds[1]).toBeGreaterThan(seconds[0])
+    expect(seconds[2]).toBeGreaterThan(seconds[1])
+    calls.forEach((call, i) => expect(seconds[i]).toBeLessThanOrEqual(Math.floor(call.at / 1000)))
+    for (const call of calls) {
+      expect(call.headers.get('x-form-signature')).toMatch(new RegExp(`^t=${call.headers.get('webhook-timestamp')},v1=`))
+    }
+
+    // An unsigned webhook on a form that doesn't store: a random id, the same on its retries.
+    const unsigned = stubFetch((_call, i) => new Response(null, { status: i === 0 ? 500 : 200 }))
+    const second = deliverAll([{ id: 'stable-2', label: 'Sheet', retries: 1, url: 'https://hooks.example.com/sheet' }], {
+      form: { id: 'nostore-form', slug: 'nostore', title: 'No store' },
+      store: false,
+    })
+    await settle(second)
+    expect(unsigned).toHaveLength(2)
+    const id = unsigned[0].headers.get('webhook-id')!
+    expect(id).toMatch(/^msg_\w+$/)
+    expect(id).not.toContain('stable')
+    expect(unsigned[1].headers.get('webhook-id')).toBe(id)
+    for (const call of unsigned) {
+      expect(call.headers.has('webhook-timestamp')).toBe(false)
+      expect(call.headers.has('webhook-signature')).toBe(false)
+      expect(call.headers.has('x-form-signature')).toBe(false)
+    }
   })
 })
