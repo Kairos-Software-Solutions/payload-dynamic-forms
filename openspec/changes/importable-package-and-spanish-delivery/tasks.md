@@ -4,7 +4,7 @@
 
 ## 2. Packed install check
 
-- [ ] 2.1 Write `scripts/check-packed.mjs` as in design 3 (stdlib only, scratch app under `os.tmpdir()`, empty `NPM_CONFIG_USERCONFIG`, `payload` and `typescript` at their devDependency versions, cleanup in `finally`). Add the script `"check:packed": "node scripts/check-packed.mjs"` to `package.json`. If `yarn lint` reports the file as outside a project, add `'scripts/*.mjs'` to `allowDefaultProject` in `eslint.config.js` (design 8). Covers "Built package installs and imports by name", "Published 0.2.0 is refused" and "Built package exposes both entries". Done when:
+- [x] 2.1 Write `scripts/check-packed.mjs` as in design 3 (stdlib only, scratch app under `os.tmpdir()`, empty `NPM_CONFIG_USERCONFIG`, `payload` and `typescript` at their devDependency versions, cleanup in `finally`). Add the script `"check:packed": "node scripts/check-packed.mjs"` to `package.json`. If `yarn lint` reports the file as outside a project, add `'scripts/*.mjs'` to `allowDefaultProject` in `eslint.config.js` (design 8). Covers "Built package installs and imports by name", "Published 0.2.0 is refused" and "Built package exposes both entries". Done when:
     - `yarn build && yarn check:packed` exits 0 and prints the `ok … (<dir>)` line, and `test -e <dir>` fails afterwards.
     - `npm pack payload-dynamic-forms@0.2.0 --pack-destination "$TMPDIR"` and then `node scripts/check-packed.mjs "$TMPDIR/payload-dynamic-forms-0.2.0.tgz"` exit 1 with output containing `main: ./src/index.ts`, `types: ./src/index.ts` and `./src/exports/shared.ts` (design 4). Put the output in your summary.
     - `yarn lint scripts/check-packed.mjs` shows no errors.

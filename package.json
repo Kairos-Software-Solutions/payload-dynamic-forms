@@ -46,6 +46,7 @@
     "build": "yarn clean && yarn build:types && yarn build:swc",
     "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths",
     "build:types": "tsc -p tsconfig.build.json",
+    "check:packed": "node scripts/check-packed.mjs",
     "clean": "rimraf dist tsconfig.build.tsbuildinfo",
     "dev": "next dev dev --turbo",
     "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
