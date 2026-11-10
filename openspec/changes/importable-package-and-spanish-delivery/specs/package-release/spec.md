@@ -23,12 +23,35 @@ The dev app, the tests and the typecheck SHALL read `src/` and SHALL NOT need a 
 
 ## MODIFIED Requirements
 
+### Requirement: README
+The README SHALL cover: what the plugin does and doesn't do (no visitor UI), install from public npm, the one-call setup with every option, the storage plugin order for attachments on R2, migrations with each version's schema note, switching off, a rendering example, the draft read, the WhatsApp popup note, delivery after the reply, the endpoints, the tested Payload range and a changelog. It SHALL name no client; its title and install commands SHALL use the `package.json` name.
+
+#### Scenario: Example in the README is real code
+- **WHEN** the test reads the README's rendering example and `examples/minimal-form.tsx`
+- **THEN** the README block equals the file, and the file passes `yarn typecheck`
+- **CHECK** tests/readme.test.ts › "readme example equals examples/minimal-form.tsx"
+
+#### Scenario: README covers the setup topics
+- **WHEN** the test reads the README
+- **THEN** it has sections for install, options, attachments and storage order, migrations, switching off, rendering, WhatsApp, delivery after the reply, endpoints, compatibility and changelog
+- **CHECK** tests/readme.test.ts › "readme has every setup section"
+
+#### Scenario: Changelog and 0.3.0 migration note
+- **WHEN** the test reads the README
+- **THEN** the first entry under `## Changelog` starts with `0.3.0`, the Migrations section has a 0.3.0 paragraph that names the `_locales` table and says to copy the old subject and body values, the Compatibility section says to use 0.3.0 or later, and the Rendering section shows `draft: true`
+- **CHECK** tests/readme.test.ts › "readme has the 0.3.0 changelog and migration note"
+
+#### Scenario: README uses the package name
+- **WHEN** the test reads the README and `package.json`
+- **THEN** the README's title and its npm, yarn and pnpm install lines use the `name` from `package.json`, and the README never mentions an earlier package name
+- **CHECK** tests/readme.test.ts › "readme uses the package name from package.json"
+
 ### Requirement: Licence and package metadata
-The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.2.1, `publishConfig` holding only `access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
+The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.3.0, `publishConfig` holding only `access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, `payload ^3.92.1` as its only peer dependency, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
 
 #### Scenario: Metadata matches
 - **WHEN** the test reads `package.json` and `LICENSE`
-- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, `publishConfig` equals `{ access: 'public' }` and the version is 0.2.1
+- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peer range is `^3.92.1`, `publishConfig` equals `{ access: 'public' }` and the version is 0.3.0
 - **CHECK** tests/package.test.ts › "package metadata and licence agree"
 
 ### Requirement: Package contents
