@@ -26,7 +26,7 @@
 
 ## 6. Final checks
 
-- [ ] 6.1 Run once, in order: `yarn install --immutable`, `yarn lint` (no errors; 0.2.0 had 46 warnings, and touched files get no new ones), `yarn typecheck`, `yarn test`, `yarn build`, the pack check (`npm pack --dry-run --json`: only `dist/`, `package.json`, `README.md`, `LICENSE`), `yarn check:packed` and `yarn spec:validate`. Covers "Suite runs offline", "Pack lists only shipped files", "Shared entry is runtime-free of Payload" and "Runtime code is Workers-safe". Done when each exits 0. Report the test count (0.2.0: 108), the lint warning count, the packed file count and how long `yarn check:packed` took.
+- [x] 6.1 Run once, in order: `yarn install --immutable`, `yarn lint` (no errors; 0.2.0 had 46 warnings, and touched files get no new ones), `yarn typecheck`, `yarn test`, `yarn build`, the pack check (`npm pack --dry-run --json`: only `dist/`, `package.json`, `README.md`, `LICENSE`), `yarn check:packed` and `yarn spec:validate`. Covers "Suite runs offline", "Pack lists only shipped files", "Shared entry is runtime-free of Payload" and "Runtime code is Workers-safe". Done when each exits 0. Report the test count (0.2.0: 108), the lint warning count, the packed file count and how long `yarn check:packed` took.
 
 ## Workflow follow-up
 

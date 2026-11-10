@@ -104,9 +104,12 @@ describe('submit', () => {
       const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { locale })
       expect(status, locale).toBe(200)
       expect(body.message, locale).toBe('Thanks, we got it.')
-      const sub = (await app.payload.findByID({ id: body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
+      const sub = (await app.payload.findByID({ id: body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as unknown as {
+        metadata: { locale: null | string }
+        snapshot: Array<{ label: string }>
+      }
       expect(sub.metadata.locale, locale).toBe('en')
-      expect(sub.snapshot.map((r: { label: string }) => r.label), locale).toEqual(['Name', 'Email'])
+      expect(sub.snapshot.map((r) => r.label), locale).toEqual(['Name', 'Email'])
     }
     const res = await app.fetch(`/custom-forms/public/${form.slug}?locale=all`)
     expect(res.status).toBe(200)

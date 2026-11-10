@@ -2,9 +2,8 @@ import type { SendEmailOptions } from 'payload'
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 
-import { type App, createForm, emailControl, field, login, outbox, section, startApp, submit, translateForm } from './helpers.js'
+import { type App, createForm, type Doc, emailControl, field, login, outbox, section, startApp, submit, translateForm } from './helpers.js'
 
-type Doc = Record<string, any>
 type Call = { locale?: null | string; title: string; to: string }
 
 let app: App

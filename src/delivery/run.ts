@@ -182,9 +182,10 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
  */
 function emailWords(ctx: DeliveryContext): (output: EmailOutput) => Promise<EmailWords> {
   const own = (output: EmailOutput): EmailWords => ({ form: ctx.form, locale: ctx.locale, output })
-  const defaultLocale = ctx.payload.config.localization ? (ctx.payload.config.localization.defaultLocale as TypedLocale) : undefined
   let teamForm: Promise<LoadedForm | null> | undefined
   return async (output) => {
+    const localization = ctx.payload?.config?.localization
+    const defaultLocale = localization ? (localization.defaultLocale as TypedLocale) : undefined
     if (output.kind === 'visitor' || !defaultLocale || ctx.locale === defaultLocale) {
       return own(output)
     }

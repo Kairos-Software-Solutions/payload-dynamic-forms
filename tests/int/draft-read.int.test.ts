@@ -4,9 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 
 import { DEFAULT_WORDS } from '../../src/exports/shared.js'
 import { getPublicForm } from '../../src/index.js'
-import { type App, countDocs, createForm, field, loginUser, outbox, section, startApp, submit } from './helpers.js'
+import { type App, countDocs, createForm, type Doc, field, loginUser, outbox, section, startApp, submit } from './helpers.js'
 
-type Doc = Record<string, any>
 type User = NonNullable<PayloadRequest['user']>
 
 let app: App
@@ -21,7 +20,7 @@ beforeAll(async () => {
   appAccess = await startApp({
     plugin: {
       formOverrides: {
-        access: { read: ({ req }) => ((req.user as null | { role?: string })?.role === 'admin' ? true : { _status: { equals: 'published' } }) },
+        access: { read: ({ req }) => ((req.user as { role?: string } | null)?.role === 'admin' ? true : { _status: { equals: 'published' } }) },
       },
     },
   })

@@ -15,6 +15,10 @@ export type App = {
   payload: Payload
 }
 
+/** A Payload document read loosely in tests (nested rows and words are edited in place). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixtures walk arbitrary nested document shapes
+export type Doc = Record<string, any>
+
 let counter = 0
 
 /** Boots the dev app (SQLite in a temp file) with extra plugin options. */
@@ -136,7 +140,7 @@ export async function countDocs(app: App, collection: string): Promise<number> {
  * Saves another locale's words on a published form: reads it in `locale` as stored (no fallback,
  * so nothing is copied from the default locale), lets `edit` change it, and saves it in `locale`.
  */
-export async function translateForm(app: App, id: number | string, locale: string, edit: (doc: Record<string, any>) => void): Promise<void> {
+export async function translateForm(app: App, id: number | string, locale: string, edit: (doc: Doc) => void): Promise<void> {
   const doc = (await app.payload.findByID({
     id,
     collection: 'custom-forms',
@@ -145,7 +149,7 @@ export async function translateForm(app: App, id: number | string, locale: strin
     fallbackLocale: false as never,
     locale: locale as never,
     overrideAccess: true,
-  })) as Record<string, any>
+  })) as Doc
   edit(doc)
   const { id: _id, createdAt: _c, updatedAt: _u, ...data } = doc
   await app.payload.update({ id, collection: 'custom-forms', data: data as never, locale: locale as never, overrideAccess: true })

@@ -39,12 +39,16 @@ describe('package', () => {
         expect(target, entry).toMatch(/^\.\/dist\//)
       }
     }
-    expect(pkg.exports['.']).toEqual({ types: './dist/index.d.ts', import: './dist/index.js', default: './dist/index.js' })
-    expect(pkg.exports['./shared']).toEqual({
-      types: './dist/exports/shared.d.ts',
-      import: './dist/exports/shared.js',
-      default: './dist/exports/shared.js',
-    })
+    expect(Object.entries(pkg.exports['.'])).toEqual([
+      ['types', './dist/index.d.ts'],
+      ['import', './dist/index.js'],
+      ['default', './dist/index.js'],
+    ])
+    expect(Object.entries(pkg.exports['./shared'])).toEqual([
+      ['types', './dist/exports/shared.d.ts'],
+      ['import', './dist/exports/shared.js'],
+      ['default', './dist/exports/shared.js'],
+    ])
     expect(JSON.stringify({ exports: pkg.exports, main: pkg.main, types: pkg.types })).not.toContain('./src/')
     expect(pkg.publishConfig).toEqual({ access: 'public' })
     for (const key of ['main', 'types', 'exports']) {
