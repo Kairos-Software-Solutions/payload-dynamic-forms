@@ -68,7 +68,7 @@ The plugin SHALL take `fields`, keyed by field type. `true` or `false` SHALL tur
 - **CHECK** tests/int/submit.int.test.ts › "custom field type validate runs on the server"
 
 ### Requirement: Package entry points
-The package SHALL export the plugin, its option and document types, the server helpers and `formBlock` from its main entry, and SHALL export the rule engine, answer checks, token, message and wa.me helpers, word defaults and types from a `./shared` entry that imports nothing from `payload` at runtime and no Node built-ins, so it runs in the browser and on Workers. The package SHALL ship no React components.
+The package SHALL export the plugin, its option and document types, the server helpers and `formBlock` from its main entry, and SHALL export the rule engine, answer checks, token, message and wa.me helpers, word defaults and types from a `./shared` entry that imports nothing from `payload` at runtime and no Node built-ins, so it runs in the browser and on Workers. Both entries SHALL import by package name from the packed tarball. The package SHALL ship no React components.
 
 #### Scenario: Shared entry is runtime-free of Payload
 - **WHEN** the test reads every file under `src/shared/`
@@ -81,9 +81,9 @@ The package SHALL export the plugin, its option and document types, the server h
 - **CHECK** tests/workers-safe.test.ts › "src imports no Node built-ins except node:buffer"
 
 #### Scenario: Built package exposes both entries
-- **WHEN** `yarn build` has run and a test imports `dist/index.js` and `dist/exports/shared.js`
-- **THEN** `formsPlugin`, `formBlock`, `getPublicForm` and `evaluateRules`, `buildWhatsAppMessage`, `whatsappUrl`, `interpolate`, `DEFAULT_WORDS` are defined
-- **CHECK** `yarn build && node -e "Promise.all([import('./dist/index.js'),import('./dist/exports/shared.js')]).then(([a,b])=>{for(const k of ['formsPlugin','formBlock','getPublicForm'])if(!a[k])throw k;for(const k of ['evaluateRules','buildWhatsAppMessage','whatsappUrl','interpolate','DEFAULT_WORDS'])if(!b[k])throw k;console.log('ok')})"` prints `ok`
+- **WHEN** `yarn build` has run and `yarn check:packed` installs the packed tarball into a scratch ESM app outside the repo
+- **THEN** importing `payload-dynamic-forms` by name gives `formsPlugin`, `formBlock` and `getPublicForm`, and importing `payload-dynamic-forms/shared` gives `evaluateRules`, `buildWhatsAppMessage`, `whatsappUrl`, `interpolate` and `DEFAULT_WORDS`, all defined
+- **CHECK** `yarn build && yarn check:packed` exits 0 and prints a line starting `ok`
 
 ### Requirement: Form block helper
 The package SHALL export `formBlock(options?)`, returning a Payload block (default slug `formBlock`) with one required relationship that picks a form from the forms collection, so an app places a form on any page by adding the block to its page blocks. The block SHALL hold no words of its own.
