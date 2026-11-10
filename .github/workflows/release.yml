@@ -112,6 +112,10 @@ jobs:
         run: |
           npm pack --dry-run --json | node -e "const f=JSON.parse(require('fs').readFileSync(0))[0].files.map(x=>x.path);const bad=f.filter(p=>!/^(dist\/|package\.json$|README\.md$|LICENSE$)/.test(p));if(bad.length){console.error(bad);process.exit(1)}console.log('ok',f.length)"
 
+      - name: Packed install check
+        if: steps.release.outputs.publish == 'true'
+        run: yarn check:packed
+
       # Trusted publishing (OIDC, id-token: write): npm checks this workflow against the
       # trusted publisher set on npmjs.com and adds provenance. No token.
       - name: Publish

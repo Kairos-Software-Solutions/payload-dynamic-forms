@@ -43,3 +43,6 @@ jobs:
       - name: Pack check
         run: |
           npm pack --dry-run --json | node -e "const f=JSON.parse(require('fs').readFileSync(0))[0].files.map(x=>x.path);const bad=f.filter(p=>!/^(dist\/|package\.json$|README\.md$|LICENSE$)/.test(p));if(bad.length){console.error(bad);process.exit(1)}console.log('ok',f.length)"
+
+      - name: Packed install check
+        run: yarn check:packed

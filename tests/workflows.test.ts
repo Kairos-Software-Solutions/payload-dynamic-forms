@@ -22,7 +22,7 @@ type Workflow = {
 }
 
 const PACK_CHECK = 'npm pack --dry-run --json'
-const CHECKS = ['yarn install --immutable', 'yarn lint', 'yarn typecheck', 'yarn test', 'yarn build', 'yarn spec:validate', PACK_CHECK]
+const CHECKS = ['yarn install --immutable', 'yarn lint', 'yarn typecheck', 'yarn test', 'yarn build', 'yarn spec:validate', PACK_CHECK, 'yarn check:packed']
 
 function runs(workflow: Workflow): string[] {
   return Object.values(workflow.jobs).flatMap((job) => job.steps.map((s) => s.run || ''))
