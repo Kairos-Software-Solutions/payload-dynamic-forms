@@ -61,7 +61,7 @@ Every option is optional.
 | `rateLimit` | `{ max: 5, windowSeconds: 600 }` | Per form and visitor; `false` turns it off. |
 | `whatsapp.number` | – | `({ req, form }) => string` for forms without their own number. |
 | `delivery.schedule` | – | Runs email and webhooks after the reply (see [Delivery after the reply](#delivery-after-the-reply)). |
-| `beforeEmail` | – | `(message, { form, answers, req }) => message`: wrap the html in your layout, add headers. |
+| `beforeEmail` | – | `(message, { form, answers, locale, req }) => message`: wrap the html in your layout, add headers. `form` and `locale` are the ones the email was written in (`locale` is undefined without localization). |
 | `webhooks` | admin secrets on, signing optional | `{ signingSecret?, headers?, secretsInAdmin?, requireSignature? }`: webhook secrets and headers from your config (values or `({ form, req, webhook }) => …`), whether the admin has secret fields, and whether unsigned webhooks are refused (see [Webhook signature](#webhook-signature)). |
 | `access.isAdmin` | any logged-in user | Who reads and writes webhook secrets in the admin, updates or deletes submissions and resends. Prefer secrets from your config (`webhooks.signingSecret` from an env var, with `webhooks.secretsInAdmin: false`): admin secrets are stored as plain text in your database and its backups. |
 | `metadata` | `{ ip: false, userAgent: true }` | What a submission keeps about the request. |
@@ -87,6 +87,8 @@ formsPlugin({
 
 Every word a visitor reads is a field: per question (label, hint, placeholder, errors, row label) and per form in **Form wording** (send, sending, sent, continue, back, choose one, step progress, optional hint, error prefix, closed, success, not found, required, invalid, file rejected, too many tries, security check failed, generic error, and the yes and no that a ticked or unticked checkbox becomes in emails, WhatsApp messages, webhooks and the snapshot). Word fields are localized when your app has localization. `getPublicForm` fills empty words from the defaults.
 
+An email output's subject and body are localized too. A visitor copy is written in the submission's language: its subject, body, row and choice labels, yes and no and form title come from the form read in that language. A team email is written in your app's default language, so the team reads one language whatever the visitor used (its other-language subject and body are stored but not sent). An empty translation uses the default language's words through Payload's fallback. Resends keep each email's language. The WhatsApp message, webhooks and the stored snapshot stay in the submission's language.
+
 ### Tokens
 
 Email subjects and bodies and WhatsApp templates take `{{key}}` (dashes and underscores allowed), `{{key.attribute}}` (an attribute of the chosen option), `{{formTitle}}`, `{{submissionId}}`, `{{*}}` (one `Label: value` line per answered, shown field) and `{{*:table}}` (the same rows as an HTML table). Unknown tokens become empty; values are HTML-escaped in html and line breaks are removed from subjects. Email addresses (`to`, `cc`, `bcc`, `from`) can't hold tokens: to write to the visitor, add a **visitor copy** naming an email field.
@@ -109,6 +111,8 @@ To use an upload collection of your own instead, pass `attachments: { collection
 The plugin adds collections, so apps on Postgres or SQLite/D1 with migrations run `payload migrate:create` after installing it (and after changing `slugs`, `fields` or `optionSources`), then `payload migrate`. Default slugs differ from the official form builder's `forms` and `form-submissions`, so both can run while you move over.
 
 Setting `webhooks.secretsInAdmin: false` also changes the schema: see [Secrets from your config](#secrets-from-your-config).
+
+**0.3.0.** With localization, the `subject` and `body` of the email rows move to the `_locales` table (`custom_forms_delivery_emails_locales`, and the same in the versions tables, `_custom_forms_v_version_delivery_emails_locales`). Payload's generated migration changes the schema only: in that migration, copy each row's old subject and body values into the default locale's rows, or enter them again. Without localization nothing changes.
 
 ## Switching off
 
@@ -312,6 +316,15 @@ export function MinimalForm({ form, searchParams }: Props) {
 
 For file uploads, post `multipart/form-data` instead of JSON (one entry per file under the field key). For Turnstile, render the widget inside the form; its token goes in the `cf-turnstile-response` field.
 
+**Draft previews.** In draft mode, pass the logged-in user and `draft: true`:
+
+```ts
+const { user } = await payload.auth({ headers: await headers() })
+const form = await getPublicForm(payload, slug, { draft: true, locale, user })
+```
+
+It returns the form's newest draft when that user's own read of the forms collection returns it, with option-source items read as drafts too; anyone else (no user, or one the read access refuses) gets the published form, never an error. `GET /api/custom-forms/public/:slug?draft=true` does the same for the request's logged-in user and answers with `Cache-Control: private, no-store`. Submitting always uses the published form, so a draft is never stored or sent.
+
 ## WhatsApp
 
 A form with WhatsApp delivery builds `https://wa.me/<digits>?text=<message>` from a template (default `{{*}}`) and a row template (default `*{{label}}:* {{value}}`, using each field's row label). The number comes from the form, else from the `whatsapp.number` option. The submit endpoint returns the link as `whatsappUrl`; `buildWhatsAppMessage` and `whatsappUrl` in `/shared` give the same link in the browser.
@@ -337,7 +350,7 @@ The submission is always stored before the reply (status `received`); the task s
 
 | Endpoint | Who | Answer |
 | --- | --- | --- |
-| `GET /api/<forms>/public/:slug` | anyone | The published form, ready to render, or 404 `{ ok: false, message }`. |
+| `GET /api/<forms>/public/:slug` | anyone | The published form, ready to render, or 404 `{ ok: false, message }`. With `?draft=true`, logged-in users with read access get the newest draft (`Cache-Control: private, no-store`). |
 | `POST /api/<forms>/submit/:slug` | anyone | JSON or `multipart/form-data` keyed by field key, plus the honeypot and Turnstile fields. |
 | `POST /api/<submissions>/:id/resend` | admins | Runs failed email and webhook deliveries again: `{ ok, status, resent, deliveryLog }`; 403 for others. |
 
@@ -437,6 +450,7 @@ Visitor IPs are not stored unless `metadata: { ip: true }`. The rate limit keeps
 
 ## Compatibility
 
+- Use 0.3.0 or later: 0.1.0 and 0.2.0 were published with entry points at files the package doesn't contain, so they can't be imported.
 - Payload `^3.92.1` (developed and tested against 3.92.1). Payload 4 is not supported yet.
 - The runtime code uses Web APIs only (Web Crypto, `fetch`, `node:buffer` for uploads), so it runs on Node and on Cloudflare Workers; the `/shared` entry imports nothing from Payload, React or Node and runs in the browser.
 - Tested on SQLite (`@payloadcms/db-sqlite`). Postgres and Workers/D1 are not tested here; nested selects carry short `dbName`s for Postgres.
@@ -449,13 +463,18 @@ Scaffolded from Payload's plugin template: `create-payload-app` 3.93.0 `--templa
 corepack enable
 yarn install
 yarn lint && yarn typecheck && yarn test && yarn build
+yarn build && yarn check:packed   # packs, installs the tarball outside the repo, imports both entries (needs the npm registry)
 yarn spec:validate   # OpenSpec plans in openspec/
 yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
 ```
 
 `yarn test` runs the unit tests and the integration tests, which boot the dev app (`dev/payload.config.ts`) on a temporary SQLite file with a recording email adapter. Outbound requests are refused in tests.
 
-**Releasing.** Bump `version` in `package.json` on `main` (straight or through a pull request). `.github/workflows/release.yml` then runs every check, publishes the new version to npm with provenance and tags it `v<version>`; a version whose tag already exists is skipped, so other pushes to `main` publish nothing. The first publish needs the `NPM_TOKEN` repository secret, because npm can only trust a package that already exists; after it, add this repo's `release.yml` as the trusted publisher on npmjs.com and delete the secret, and later releases use trusted publishing.
+**Releasing.** Bump `version` in `package.json` on `main` (straight or through a pull request). `.github/workflows/release.yml` then runs every check, including the packed install check (`yarn check:packed`) before publishing, publishes the new version to npm with provenance and tags it `v<version>`; a version whose tag already exists is skipped, so other pushes to `main` publish nothing. The first publish needs the `NPM_TOKEN` repository secret, because npm can only trust a package that already exists; after it, add this repo's `release.yml` as the trusted publisher on npmjs.com and delete the secret, and later releases use trusted publishing.
+
+## Changelog
+
+- 0.3.0: importable package (entry points in `dist/`), email subject and body per language (visitor copy in the visitor's language, team email in the default language), draft read for previews. Migration needed with localization (see [Migrations](#migrations)).
 
 ## Licence
 

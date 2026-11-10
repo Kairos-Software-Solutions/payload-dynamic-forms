@@ -22,7 +22,7 @@
 
 ## 5. Docs
 
-- [ ] 5.1 In `README.md`, make the edits of design 16 and nothing else. Add `'Changelog'` to the section list in tests/readme.test.ts › "readme has every setup section", and add tests/readme.test.ts › "readme has the 0.3.0 changelog and migration note". Covers "README covers the setup topics", "Changelog and 0.3.0 migration note", "Example in the README is real code" and "README uses the package name". Done when tests/readme.test.ts passes, `grep -c 'check:packed' README.md` prints 2 or more, and `grep -n '0.3.0' README.md` shows the Compatibility, Migrations and Changelog lines.
+- [x] 5.1 In `README.md`, make the edits of design 16 and nothing else. Add `'Changelog'` to the section list in tests/readme.test.ts › "readme has every setup section", and add tests/readme.test.ts › "readme has the 0.3.0 changelog and migration note". Covers "README covers the setup topics", "Changelog and 0.3.0 migration note", "Example in the README is real code" and "README uses the package name". Done when tests/readme.test.ts passes, `grep -c 'check:packed' README.md` prints 2 or more, and `grep -n '0.3.0' README.md` shows the Compatibility, Migrations and Changelog lines.
 
 ## 6. Final checks
 

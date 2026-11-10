@@ -53,6 +53,7 @@ describe('README', () => {
       'Delivery after the reply',
       'Endpoints',
       'Compatibility',
+      'Changelog',
     ]) {
       expect(found, section).toContain(section)
     }
@@ -60,5 +61,29 @@ describe('README', () => {
     expect(readme).toContain('^3.92.1')
     expect(readme).toMatch(/drops those tables at the next migration/)
     expect(readme).toContain('6eb8e57198678f2e669b906097f670ec98b17523')
+  })
+
+  test('readme has the 0.3.0 changelog and migration note', () => {
+    const sectionText = (name: string) => {
+      const start = readme.indexOf(`\n## ${name}\n`)
+      expect(start, name).toBeGreaterThan(-1)
+      const rest = readme.slice(start + name.length + 5)
+      const end = rest.search(/^## /m)
+      return end === -1 ? rest : rest.slice(0, end)
+    }
+    const changelog = sectionText('Changelog')
+    const first = changelog.split('\n').find((line) => line.startsWith('- '))
+    expect(first).toBeDefined()
+    expect(first!.slice(2)).toMatch(/^0\.3\.0\b/)
+
+    const migrations = sectionText('Migrations')
+    const note = migrations.split('\n\n').find((paragraph) => paragraph.includes('0.3.0'))
+    expect(note).toBeDefined()
+    expect(note).toContain('_locales')
+    expect(note).toContain('custom_forms_delivery_emails_locales')
+    expect(note).toMatch(/copy each row's old subject and body/)
+
+    expect(sectionText('Compatibility')).toMatch(/0\.3\.0 or later/)
+    expect(sectionText('Rendering')).toContain('draft: true')
   })
 })
