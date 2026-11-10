@@ -181,6 +181,28 @@ describe('plugin config', () => {
     expect(JSON.stringify(forms.versions)).not.toContain('schedulePublish')
   })
 
+  test('email subject and body are localized', () => {
+    let rowFields: Field[] | undefined
+    walk(collection(formsPlugin({})(baseConfig()), 'custom-forms').fields, (field, path) => {
+      if (field.type === 'array' && path === 'delivery.emails') {
+        rowFields = field.fields
+      }
+    })
+    expect(rowFields).toBeDefined()
+    const localized = new Map<string, boolean>()
+    walk(rowFields!, (field, path) => {
+      if ('name' in field && path === field.name) {
+        localized.set(field.name, Boolean((field as { localized?: boolean }).localized))
+      }
+    })
+    expect([...localized.keys()].sort()).toEqual(
+      ['bcc', 'body', 'cc', 'enabled', 'from', 'kind', 'label', 'replyToField', 'subject', 'to', 'visitorField'].sort(),
+    )
+    for (const [name, isLocalized] of localized) {
+      expect(isLocalized, name).toBe(name === 'subject' || name === 'body')
+    }
+  })
+
   test('secretsInAdmin false leaves the secret fields out', () => {
     const rowFields = (config: Config): Field[] => {
       let found: Field[] | undefined

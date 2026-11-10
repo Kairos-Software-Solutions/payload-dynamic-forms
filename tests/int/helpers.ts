@@ -122,3 +122,22 @@ export async function submit(
 export async function countDocs(app: App, collection: string): Promise<number> {
   return (await app.payload.count({ collection: collection as never, overrideAccess: true })).totalDocs
 }
+
+/**
+ * Saves another locale's words on a published form: reads it in `locale` as stored (no fallback,
+ * so nothing is copied from the default locale), lets `edit` change it, and saves it in `locale`.
+ */
+export async function translateForm(app: App, id: number | string, locale: string, edit: (doc: Record<string, any>) => void): Promise<void> {
+  const doc = (await app.payload.findByID({
+    id,
+    collection: 'custom-forms',
+    depth: 0,
+    draft: false,
+    fallbackLocale: false as never,
+    locale: locale as never,
+    overrideAccess: true,
+  })) as Record<string, any>
+  edit(doc)
+  const { id: _id, createdAt: _c, updatedAt: _u, ...data } = doc
+  await app.payload.update({ id, collection: 'custom-forms', data: data as never, locale: locale as never, overrideAccess: true })
+}

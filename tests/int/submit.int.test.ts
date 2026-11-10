@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 import { devPluginOptions } from '../../dev/payload.config.js'
 import { DEFAULT_WORDS } from '../../src/exports/shared.js'
-import { type App, countDocs, createForm, field, outbox, section, startApp, submit } from './helpers.js'
+import { type App, countDocs, createForm, field, outbox, section, startApp, submit, translateForm } from './helpers.js'
 
 let app: App
 let appIp: App
@@ -86,6 +86,36 @@ describe('public read', () => {
 })
 
 describe('submit', () => {
+  test('unknown or all locale reads and stores the default locale', async () => {
+    const form = await createForm(app, { sections: contactSections, title: 'Contact', wording: { send: 'Send', success: 'Thanks, we got it.' } })
+    await translateForm(app, form.id, 'es', (doc) => {
+      doc.title = 'Contacto'
+      doc.wording = { ...doc.wording, send: 'Enviar', success: 'Gracias, lo recibimos.' }
+      for (const f of doc.sections[0].fields) {
+        f.words = { ...f.words, label: `ES ${f.fieldKey}` }
+      }
+    })
+    // The Spanish words are there for `es` itself.
+    expect((await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { locale: 'es' })).body.message).toBe('Gracias, lo recibimos.')
+    for (const locale of ['all', 'xx']) {
+      const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' }, { locale })
+      expect(status, locale).toBe(200)
+      expect(body.message, locale).toBe('Thanks, we got it.')
+      const sub = (await app.payload.findByID({ id: body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
+      expect(sub.metadata.locale, locale).toBe('en')
+      expect(sub.snapshot.map((r: { label: string }) => r.label), locale).toEqual(['Name', 'Email'])
+    }
+    const res = await app.fetch(`/custom-forms/public/${form.slug}?locale=all`)
+    expect(res.status).toBe(200)
+    const read = await res.json()
+    expect(read.title).toBe('Contact')
+    for (const [key, value] of Object.entries(read.wording)) {
+      expect(typeof value, key).toBe('string')
+    }
+    expect(read.wording.send).toBe('Send')
+    expect(read.sections[0].fields[0].words.label).toBe('Name')
+  })
+
   test('valid answers are stored and answered with success words', async () => {
     const form = await createForm(app, { sections: contactSections, wording: { success: 'Got it, thanks.' } })
     const { body, status } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com', message: 'Hello' })

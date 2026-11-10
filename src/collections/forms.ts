@@ -69,6 +69,8 @@ function secretFields(secret: FieldAccess): Field[] {
   ]
 }
 
+const EMAIL_LANGUAGE_HELP = "Visitor copies use the visitor's language; team emails use the default language."
+
 function deliveryField(options: ResolvedOptions): Field {
   const secret = adminFieldAccess(options.isAdmin)
   return {
@@ -136,12 +138,21 @@ function deliveryField(options: ResolvedOptions): Field {
               { name: 'replyToField', type: 'text', admin: { description: 'Key of an email field to reply to.', width: '50%' } },
             ],
           },
-          { name: 'subject', type: 'text', defaultValue: 'New submission: {{formTitle}}' },
+          {
+            name: 'subject',
+            type: 'text',
+            admin: { description: EMAIL_LANGUAGE_HELP },
+            defaultValue: 'New submission: {{formTitle}}',
+            localized: true,
+          },
           {
             name: 'body',
             type: 'textarea',
-            admin: { description: 'Tokens: {{key}}, {{key.attribute}}, {{*}}, {{*:table}}, {{formTitle}}, {{submissionId}}.' },
+            admin: {
+              description: `Tokens: {{key}}, {{key.attribute}}, {{*}}, {{*:table}}, {{formTitle}}, {{submissionId}}. ${EMAIL_LANGUAGE_HELP}`,
+            },
             defaultValue: '{{*:table}}',
+            localized: true,
           },
         ],
       },

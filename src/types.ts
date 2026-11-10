@@ -5,6 +5,7 @@ import type {
   Field,
   PayloadRequest,
   SendEmailOptions,
+  TypedLocale,
 } from 'payload'
 
 import type { Answers, FieldTypeChecks, FormWords, PublicForm } from './shared/types.js'
@@ -95,7 +96,8 @@ export type FormsPluginOptions = {
   /** Gets each email before it is sent (wrap it in a layout, add headers…) and returns the one to send. */
   beforeEmail?: (
     message: SendEmailOptions,
-    ctx: { answers: Answers; form: PublicForm; req: PayloadRequest },
+    /** `form` and `locale` are the ones the email was written from (`locale` is undefined without localization). */
+    ctx: { answers: Answers; form: PublicForm; locale?: TypedLocale; req: PayloadRequest },
   ) => Promise<SendEmailOptions> | SendEmailOptions
   delivery?: {
     /**

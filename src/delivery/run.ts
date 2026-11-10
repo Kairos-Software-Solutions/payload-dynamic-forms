@@ -1,9 +1,10 @@
-import type { Payload, PayloadRequest, SendEmailOptions } from 'payload'
+import type { Payload, PayloadRequest, SendEmailOptions, TypedLocale } from 'payload'
 
-import type { EmailOutput, FormDelivery, WebhookOutput } from '../server/forms.js'
+import type { EmailOutput, FormDelivery, LoadedForm, WebhookOutput } from '../server/forms.js'
 import type { Answers, PublicForm, SnapshotRow, SubmissionStatus } from '../shared/types.js'
 import type { ResolvedOptions, WebhookConfigArgs, WebhookConfigValue } from '../types.js'
 
+import { loadFormById } from '../server/forms.js'
 import { isValidEmail } from '../shared/answers.js'
 import { buildMessageRows, buildTemplateValues, interpolate } from '../shared/tokens.js'
 import { sendWebhook, webhookMessageId } from './webhook.js'
@@ -24,12 +25,17 @@ export type DeliveryContext = {
   attachments?: Array<{ fieldKey: string; filename: string; id: number | string }>
   delivery: FormDelivery
   form: PublicForm
+  /** The submission's locale (the one `form` was read in); none without localization. */
+  locale?: TypedLocale
   options: ResolvedOptions
   payload: Payload
   req: PayloadRequest
   snapshot: SnapshotRow[]
   submissionId?: number | string
 }
+
+/** The words an email is written from: the form read in one locale and that read's output. */
+type EmailWords = { form: PublicForm; locale?: TypedLocale; output: EmailOutput }
 
 function addresses(value: null | string | undefined): string | undefined {
   const list = String(value || '')
@@ -43,7 +49,7 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput): Promise<LogEntry> {
+async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput, words: EmailWords): Promise<LogEntry> {
   const at = new Date().toISOString()
   const base = { at, kind: 'email' as const, label: output.label || null, outputId: output.id || null }
   let to: string | undefined
@@ -66,14 +72,16 @@ async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput): Promise<
   if (!to) {
     return { ...base, error: 'No address to send to.', result: 'failed', target: null, tries: 0 }
   }
-  const rows = buildMessageRows(ctx.form, ctx.answers, ctx.options.fieldTypes)
+  // Labels, Yes/No, the title, subject and body come from the form read in the email's language.
+  const { form } = words
+  const rows = buildMessageRows(form, ctx.answers, ctx.options.fieldTypes)
   const values = buildTemplateValues(
-    ctx.form,
+    form,
     ctx.answers,
-    { formTitle: ctx.form.title, submissionId: ctx.submissionId === undefined ? '' : String(ctx.submissionId) },
+    { formTitle: form.title, submissionId: ctx.submissionId === undefined ? '' : String(ctx.submissionId) },
     ctx.options.fieldTypes,
   )
-  const body = output.body || '{{*:table}}'
+  const body = words.output.body || '{{*:table}}'
   const replyKey = String(output.replyToField || '')
   const replyTo = replyKey && isValidEmail(ctx.answers[replyKey]) ? String(ctx.answers[replyKey]).trim() : undefined
   let message: SendEmailOptions = {
@@ -82,7 +90,7 @@ async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput): Promise<
     from: output.from?.trim() || undefined,
     html: interpolate(body.split('\n').join('<br>\n'), values, { html: true, rows }),
     replyTo,
-    subject: interpolate(output.subject || 'New submission: {{formTitle}}', values, { singleLine: true }),
+    subject: interpolate(words.output.subject || 'New submission: {{formTitle}}', values, { singleLine: true }),
     text: interpolate(body, values, { rows }),
     to,
   }
@@ -93,7 +101,7 @@ async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput): Promise<
   }
   try {
     if (ctx.options.beforeEmail) {
-      message = await ctx.options.beforeEmail(message, { answers: ctx.answers, form: ctx.form, req: ctx.req })
+      message = await ctx.options.beforeEmail(message, { answers: ctx.answers, form, locale: words.locale, req: ctx.req })
     }
     await ctx.payload.sendEmail(message)
     return { ...base, result: 'success', target: to, tries: 1 }
@@ -167,14 +175,35 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
   }
 }
 
+/**
+ * The words of one email: a visitor copy in the submission's language, a team email in the app's
+ * default locale. The default-locale form is read once per run, only when it differs from the
+ * submission's; when that read fails or lacks the output, the submission-locale words are used.
+ */
+function emailWords(ctx: DeliveryContext): (output: EmailOutput) => Promise<EmailWords> {
+  const own = (output: EmailOutput): EmailWords => ({ form: ctx.form, locale: ctx.locale, output })
+  const defaultLocale = ctx.payload.config.localization ? (ctx.payload.config.localization.defaultLocale as TypedLocale) : undefined
+  let teamForm: Promise<LoadedForm | null> | undefined
+  return async (output) => {
+    if (output.kind === 'visitor' || !defaultLocale || ctx.locale === defaultLocale) {
+      return own(output)
+    }
+    teamForm ??= loadFormById(ctx.payload, ctx.form.id, { locale: defaultLocale, req: ctx.req }).catch(() => null)
+    const loaded = await teamForm
+    const match = loaded && output.id ? loaded.delivery.emails.find((e) => e.id === output.id) : undefined
+    return loaded && match ? { form: loaded.form, locale: defaultLocale, output: match } : own(output)
+  }
+}
+
 /** Runs the enabled email and webhook outputs (or only `only`), each catching its own errors. */
 export async function runDeliveries(ctx: DeliveryContext, only?: Set<string>): Promise<LogEntry[]> {
   const entries: LogEntry[] = []
+  const wordsFor = emailWords(ctx)
   for (const output of ctx.delivery.emails) {
     if (output.enabled === false || (only && !only.has(String(output.id)))) {
       continue
     }
-    entries.push(await sendOneEmail(ctx, output))
+    entries.push(await sendOneEmail(ctx, output, await wordsFor(output)))
   }
   for (const output of ctx.delivery.webhooks) {
     if (output.enabled === false || (only && !only.has(String(output.id)))) {

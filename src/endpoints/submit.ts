@@ -9,7 +9,7 @@ import { hasDeliveries, type LogEntry, runDeliveries, statusFromLog } from '../d
 import { checkRateLimit } from '../security/rateLimit.js'
 import { getRequestIP, isHoneypotFilled } from '../security/request.js'
 import { checkTurnstile } from '../security/turnstile.js'
-import { loadPublishedForm } from '../server/forms.js'
+import { loadPublishedForm, pluginLocale } from '../server/forms.js'
 import { buildSnapshot, checkAnswers } from '../shared/answers.js'
 import { getFieldLabel, getInputFields } from '../shared/rules.js'
 import { buildWhatsAppMessage, whatsappUrl } from '../shared/whatsapp.js'
@@ -55,7 +55,8 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
     handler: async (req) => {
       const payload = req.payload
       const slug = String(req.routeParams?.slug || '')
-      const locale = (req.locale || undefined) as never
+      // Only one of the app's locale codes (`?locale=all` reads and stores the default locale).
+      const locale = pluginLocale(payload, req.locale)
       const loaded = slug ? await loadPublishedForm(payload, slug, { locale, req }) : null
       if (!loaded) {
         return respond(404, { message: options.words.notFound, ok: false })
@@ -175,7 +176,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               form: form.id,
               metadata: {
                 ip: options.metadata.ip ? ip || null : null,
-                locale: req.locale || null,
+                locale: locale || null,
                 userAgent: options.metadata.userAgent ? req.headers.get('user-agent') || null : null,
               },
               snapshot,
@@ -213,6 +214,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               attachments: created,
               delivery,
               form,
+              locale,
               options,
               payload,
               req,

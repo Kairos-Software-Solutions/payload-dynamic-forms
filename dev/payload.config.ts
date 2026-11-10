@@ -31,6 +31,8 @@ export type DevConfigArgs = {
   collections?: Config['collections']
   /** SQLite file (default: a fresh file in the OS temp folder). */
   dbFile?: string
+  /** `false`: an app without localization (default: `en` and `es`, fallback on). */
+  localization?: false
   /** Plugin options merged over `devPluginOptions`. */
   plugin?: FormsPluginOptions
 }
@@ -77,7 +79,7 @@ export function buildDevConfig(args: DevConfigArgs = {}) {
     ],
     db: sqliteAdapter({ client: { url: `file:${dbFile}` }, push: true }),
     email: testEmailAdapter,
-    localization: { defaultLocale: 'en', fallback: true, locales: ['en', 'es'] },
+    ...(args.localization === false ? {} : { localization: { defaultLocale: 'en', fallback: true, locales: ['en', 'es'] } }),
     plugins: [
       formsPlugin({
         // Private files next to the database file, so every app starts empty.

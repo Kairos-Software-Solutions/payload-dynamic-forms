@@ -3,7 +3,7 @@ import type { Payload, PayloadRequest } from 'payload'
 import type { Answers, SnapshotRow, SubmissionStatus } from '../shared/types.js'
 
 import { type LogEntry, runDeliveries, statusFromLog } from '../delivery/run.js'
-import { getPluginOptions, loadFormById } from './forms.js'
+import { getPluginOptions, loadFormById, pluginLocale } from './forms.js'
 
 export type SubmissionDoc = {
   answers?: Answers | null
@@ -30,7 +30,8 @@ export async function resendFailedDeliveries(
     return rest as LogEntry
   })
   const formId = typeof submission.form === 'object' && submission.form ? submission.form.id : submission.form
-  const loaded = formId != null ? await loadFormById(payload, formId, { locale: (submission.metadata?.locale || undefined) as never, req }) : null
+  const locale = pluginLocale(payload, submission.metadata?.locale)
+  const loaded = formId != null ? await loadFormById(payload, formId, { locale, req }) : null
   const last = new Map<string, LogEntry>()
   for (const entry of log) {
     if (entry.outputId) {
@@ -75,6 +76,7 @@ export async function resendFailedDeliveries(
           attachments: attachments.map((id) => ({ id, fieldKey: '', filename: '' })),
           delivery: loaded.delivery,
           form: loaded.form,
+          locale,
           options,
           payload,
           req,

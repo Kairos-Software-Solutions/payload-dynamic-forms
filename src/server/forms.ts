@@ -73,6 +73,20 @@ export function getPluginOptions(payload: Payload): ResolvedOptions {
   return options
 }
 
+/**
+ * The locale the plugin reads and stores: `value` when it is one of the app's locale codes, the
+ * default locale for anything else (`all`, `*`, empty, unknown), and none without localization.
+ */
+export function pluginLocale(payload: Payload, value: unknown): TypedLocale | undefined {
+  const localization = payload.config.localization
+  if (!localization) {
+    return undefined
+  }
+  return typeof value === 'string' && localization.localeCodes.includes(value)
+    ? (value as TypedLocale)
+    : (localization.defaultLocale as TypedLocale)
+}
+
 function pick(doc: Record<string, unknown>, names: string[] = []): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const name of names) {
