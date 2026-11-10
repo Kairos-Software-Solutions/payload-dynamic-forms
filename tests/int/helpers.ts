@@ -1,4 +1,4 @@
-import type { Payload, SanitizedConfig } from 'payload'
+import type { Payload, PayloadRequest, SanitizedConfig } from 'payload'
 
 import { getPayload, handleEndpoints } from 'payload'
 
@@ -54,6 +54,15 @@ export async function login(app: App, role: 'admin' | 'editor'): Promise<string>
   await app.payload.create({ collection: 'users', data: { email, password, role } as never, overrideAccess: true })
   const result = await app.payload.login({ collection: 'users', data: { email, password } })
   return result.token!
+}
+
+/** Creates a user and logs in: the token for REST calls and the user for Local API calls. */
+export async function loginUser(app: App, role: 'admin' | 'editor'): Promise<{ token: string; user: NonNullable<PayloadRequest['user']> }> {
+  const email = `${role}-${Math.random().toString(36).slice(2)}@example.com`
+  const password = 'test-password-not-secret'
+  await app.payload.create({ collection: 'users', data: { email, password, role } as never, overrideAccess: true })
+  const result = await app.payload.login({ collection: 'users', data: { email, password } })
+  return { token: result.token!, user: result.user as never }
 }
 
 type FieldSpec = { blockType: string; fieldKey?: string; label?: string } & Record<string, unknown>

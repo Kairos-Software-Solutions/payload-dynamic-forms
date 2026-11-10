@@ -5,14 +5,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { type App, createForm, emailControl, field, login, outbox, section, startApp, submit, translateForm } from './helpers.js'
 
 type Doc = Record<string, any>
-type Call = { locale?: string; title: string; to: string }
+type Call = { locale?: null | string; title: string; to: string }
 
 let app: App
 let appPlain: App
 let adminToken: string
 const calls: Call[] = []
 
-const beforeEmail = (message: SendEmailOptions, ctx: { form: { title: string }; locale?: string }) => {
+const beforeEmail = (message: SendEmailOptions, ctx: { form: { title: string }; locale?: null | string }) => {
   calls.push({ locale: ctx.locale, title: ctx.form.title, to: String(message.to) })
   return message
 }

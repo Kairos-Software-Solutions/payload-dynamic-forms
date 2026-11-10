@@ -100,9 +100,10 @@ function pick(doc: Record<string, unknown>, names: string[] = []): Record<string
 /**
  * Turns source-based choices into `{ label, value, attributes }`: picked items in their order, or
  * every published item in the source's default sort when the pick is empty. Unpublished and
- * missing items are left out.
+ * missing items are left out. A draft read (`draft`) reads each item's newest draft instead and
+ * keeps items that were never published.
  */
-async function resolveChoices(payload: Payload, options: ResolvedOptions, sections: FormSection[], locale: Locale) {
+async function resolveChoices(payload: Payload, options: ResolvedOptions, sections: FormSection[], locale: Locale, draft = false) {
   const sources = options.optionSources || {}
   for (const section of sections) {
     for (const field of section.fields || []) {
@@ -133,14 +134,14 @@ async function resolveChoices(payload: Payload, options: ResolvedOptions, sectio
       if (picked.length) {
         and.push({ id: { in: ids.length ? ids : [-1] } })
       }
-      if (config.versions?.drafts) {
+      if (config.versions?.drafts && !draft) {
         and.push({ _status: { equals: 'published' } })
       }
       // Trusted read of the items the editor picked: only label, value and listed attributes leave it.
       const { docs } = await payload.find({
         collection: slug as never,
         depth: 0,
-        draft: false,
+        draft,
         locale: locale as never,
         overrideAccess: true,
         pagination: false,
@@ -167,9 +168,10 @@ async function buildLoaded(
   raw: RawForm,
   locale: Locale,
   req?: PayloadRequest,
+  draft = false,
 ): Promise<LoadedForm> {
   const sections = structuredClone(raw.sections || []).filter(Boolean)
-  await resolveChoices(payload, options, sections, locale)
+  await resolveChoices(payload, options, sections, locale, draft)
   const d = raw.delivery || {}
   const delivery: FormDelivery = {
     emails: (d.emails || []).filter(Boolean),
@@ -266,15 +268,68 @@ export async function loadFormById(
 }
 
 /**
+ * The newest draft of a form, when `user`'s own read of the forms collection (with drafts)
+ * returns it; null otherwise, never an error. Option-source items are read as drafts too.
+ */
+async function loadDraftForm(
+  payload: Payload,
+  slug: string,
+  args: { locale?: Locale; req?: PayloadRequest; user: NonNullable<PayloadRequest['user']> },
+): Promise<LoadedForm | null> {
+  const options = getPluginOptions(payload)
+  // The user's own read: the collection's read access decides (including an app's override).
+  const { docs } = await payload.find({
+    collection: options.slugs.forms as never,
+    depth: 0,
+    disableErrors: true,
+    draft: true,
+    limit: 1,
+    locale: args.locale as never,
+    overrideAccess: false,
+    pagination: false,
+    user: args.user,
+    where: { slug: { equals: slug } },
+  })
+  const visible = docs?.[0] as RawForm | undefined
+  if (!visible) {
+    return null
+  }
+  // Server-side read of the same draft for the settings the public form needs.
+  const full = (await payload.findByID({
+    id: visible.id,
+    collection: options.slugs.forms as never,
+    depth: 0,
+    disableErrors: true,
+    draft: true,
+    locale: args.locale as never,
+    overrideAccess: true,
+  })) as unknown as null | RawForm
+  if (!full) {
+    return null
+  }
+  return buildLoaded(payload, options, { ...full, id: visible.id }, args.locale, args.req, true)
+}
+
+/**
  * A published form ready to render: sections, choices from sources resolved with their
  * attributes, words filled from the defaults, the WhatsApp number when WhatsApp is on, and none of
  * its other delivery settings. Null for unknown or unpublished slugs.
+ *
+ * With `draft: true` and a user (`user`, else `req.user`) whose own read of the forms collection
+ * returns it, the form's newest draft instead (for previews). Anyone else gets the published form.
  */
 export async function getPublicForm(
   payload: Payload,
   slug: string,
-  args: { locale?: Locale; req?: PayloadRequest } = {},
+  args: { draft?: boolean; locale?: Locale; req?: PayloadRequest; user?: null | PayloadRequest['user'] } = {},
 ): Promise<null | PublicForm> {
-  const loaded = await loadPublishedForm(payload, slug, args)
+  const user = args.user ?? args.req?.user
+  if (args.draft === true && user) {
+    const draft = await loadDraftForm(payload, slug, { locale: args.locale, req: args.req, user })
+    if (draft) {
+      return draft.form
+    }
+  }
+  const loaded = await loadPublishedForm(payload, slug, { locale: args.locale, req: args.req })
   return loaded ? loaded.form : null
 }

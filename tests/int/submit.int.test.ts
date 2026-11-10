@@ -78,9 +78,12 @@ describe('public read', () => {
   test('public read of drafts and unknown slugs is 404', async () => {
     const draft = await createForm(app, { sections: contactSections }, { draft: true })
     for (const slug of [draft.slug, 'no-such-form']) {
-      const res = await app.fetch(`/custom-forms/public/${slug}`)
-      expect(res.status, slug).toBe(404)
-      expect(await res.json()).toEqual({ message: DEFAULT_WORDS.notFound, ok: false })
+      // Anonymous, with and without asking for a draft.
+      for (const query of ['', '?draft=true']) {
+        const res = await app.fetch(`/custom-forms/public/${slug}${query}`)
+        expect(res.status, `${slug}${query}`).toBe(404)
+        expect(await res.json()).toEqual({ message: DEFAULT_WORDS.notFound, ok: false })
+      }
     }
   })
 })
