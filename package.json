@@ -1,6 +1,6 @@
 {
   "name": "payload-dynamic-forms",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Forms for Payload CMS 3: sections, steps, show/hide rules checked on the server, spam checks, attachments, email, WhatsApp and webhook delivery. No visitor UI.",
   "license": "MIT",
   "author": "Kairos Software Solutions",
@@ -27,18 +27,18 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./shared": {
-      "import": "./src/exports/shared.ts",
-      "types": "./src/exports/shared.ts",
-      "default": "./src/exports/shared.ts"
+      "types": "./dist/exports/shared.d.ts",
+      "import": "./dist/exports/shared.js",
+      "default": "./dist/exports/shared.js"
     }
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -96,21 +96,7 @@
     "node": "^22.23.4 || >=24.22.1"
   },
   "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": {
-        "import": "./dist/index.js",
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "./shared": {
-        "import": "./dist/exports/shared.js",
-        "types": "./dist/exports/shared.d.ts",
-        "default": "./dist/exports/shared.js"
-      }
-    },
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts"
+    "access": "public"
   },
   "packageManager": "yarn@4.18.1"
 }
