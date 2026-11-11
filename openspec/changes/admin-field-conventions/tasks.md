@@ -19,7 +19,7 @@
 
 ## 5. Final checks
 
-- [ ] 5.1 Run once: `yarn lint` (no errors; report the warning count against the 0.3.0 number), `yarn typecheck`, `yarn test` (all pass, offline; covers "Suite runs offline"), `yarn build`, the pack check, `yarn check:packed`, `yarn spec:validate`. Done when each exits 0; put each result in your summary.
+- [x] 5.1 Run once: `yarn lint` (no errors; report the warning count against the 0.3.0 number), `yarn typecheck`, `yarn test` (all pass, offline; covers "Suite runs offline"), `yarn build`, the pack check, `yarn check:packed`, `yarn spec:validate`. Done when each exits 0; put each result in your summary.
 
 ## Workflow follow-up
 
