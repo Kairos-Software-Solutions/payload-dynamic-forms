@@ -32,10 +32,10 @@ The arrays of rules in a show/hide group and in a next-step rule SHALL be labell
 - **CHECK** tests/plugin-config.test.ts › "rule fields are labelled Field and Next section"
 
 ### Requirement: Checkboxes level with the inputs
-A checkbox that shares a row with inputs SHALL carry the plugin's shared level style in `admin.style`: a question's `required`, and the `enabled` of each email and webhook row. Names, defaults and widths SHALL stay as in 0.3.0.
+A checkbox that shares a row with inputs SHALL carry the plugin's shared level style in `admin.style`: a question's `required`, the single checkbox question's `defaultValue` (it shares the prefill row), and the `enabled` of each email and webhook row. Names, defaults and widths SHALL stay as in 0.3.0.
 
 #### Scenario: Row checkboxes carry the level style
-- **WHEN** the test reads `required` in every input block and `enabled` in the email and webhook rows
+- **WHEN** the test reads `required` in every input block, `defaultValue` in the checkbox block and `enabled` in the email and webhook rows
 - **THEN** each has `admin.style` equal to `LEVEL_CHECKBOX_STYLE`, and its name, default and width are unchanged
 - **CHECK** tests/plugin-config.test.ts › "row checkboxes carry the level style"
 

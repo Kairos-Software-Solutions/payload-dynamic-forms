@@ -42,3 +42,8 @@ Each input question SHALL have a hidden lock, `prefillFromKey`, like Payload's s
 - **WHEN** the prefill component renders a locked question keyed `need`, the key changes to `topic`, the editor clicks Unlock and types `ref`, then clicks Lock
 - **THEN** the input shows `topic` read-only, then `ref` editable with `prefillFromKey` false, then `topic` read-only with `prefillFromKey` true; a row with `prefillFromKey` null renders unlocked with its stored text, and a file upload question shows no lock
 - **CHECK** tests/admin/prefill-field.test.tsx › "prefill locks to the key and unlocks to edit"
+
+#### Scenario: Lock button sits inside the input box like the slug field's
+- **WHEN** the prefill component renders, locked and unlocked
+- **THEN** the Lock/Unlock button is positioned against the input box itself, not the whole field (label and description excluded), mirroring how `@payloadcms/ui@3.92.1` `fields/Slug` places its Unlock button, so it is vertically centred in the input
+- **CHECK** tests/admin/prefill-field.test.tsx › "lock button sits inside the input box"

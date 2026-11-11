@@ -21,6 +21,10 @@
 
 - [x] 5.1 Run once: `yarn lint` (no errors; report the warning count against the 0.3.0 number), `yarn typecheck`, `yarn test` (all pass, offline; covers "Suite runs offline"), `yarn build`, the pack check, `yarn check:packed`, `yarn spec:validate`. Done when each exits 0; put each result in your summary.
 
+## 6. Review fixes (planner's admin check on the dev app)
+
+- [ ] 6.1 Two things the planner saw in the dev app's admin at 1366: (a) the checkbox question's "Default Value" checkbox sits a label's height above the prefill input beside it: give that `defaultValue` checkbox `LEVEL_CHECKBOX_STYLE` (checkbox block only; other blocks' `defaultValue` are not checkboxes) and extend "row checkboxes carry the level style"; (b) the prefill Lock/Unlock button sits low, near the bottom edge of the input, because its absolutely positioned container spans more than the input box: read `@payloadcms/ui@3.92.1` `dist/fields/Slug/` (component and scss) and position the actions against the input box the same way, so the button is vertically centred in the input; add tests/admin/prefill-field.test.tsx › "lock button sits inside the input box" (asserts the actions container's position parent is the input box element the slug pattern uses, not the field wrapper). Covers "Row checkboxes carry the level style" and "Lock button sits inside the input box like the slug field's". Done when `yarn vitest run tests/plugin-config.test.ts tests/admin` passes, then `yarn lint`, `yarn typecheck`, `yarn test`, `yarn build`, `yarn check:packed` and `CI=true yarn install --immutable` all exit 0.
+
 ## Workflow follow-up
 
 - Planner: after job-055 merges, rebase the build branch onto `main` (expected conflict `package.json`/`yarn.lock` only: keep both changes, version 0.4.0, regenerate the lock), then the review rerun on the rebased head: every CHECK, `check_names_step.py`, `yarn check:packed`, the 0.2.0 negative run; audit the diff (no secrets, no client names; public repo).
