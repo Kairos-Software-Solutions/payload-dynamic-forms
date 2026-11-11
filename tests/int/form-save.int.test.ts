@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-
 import { sql } from '@payloadcms/db-sqlite'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { DEFAULT_WORDS, type FormLike, initialAnswers, WORD_KEYS } from '../../src/exports/shared.js'
 import { getPublicForm } from '../../src/index.js'

@@ -1,5 +1,7 @@
 import type { Block, CollectionConfig, Config, Field } from 'payload'
 
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 
 import { LEVEL_CHECKBOX_STYLE } from '../src/collections/adminStyle.js'
@@ -473,7 +475,7 @@ describe('plugin config', () => {
     const config = formsPlugin({
       fields: { fileUpload: true, rating: { block: { slug: 'rating', fields: [{ name: 'rating', type: 'number' }] } } },
     })(baseConfig())
-    const blocks = sectionBlocks(config).filter((b) => [...INPUT_TYPES, 'rating'].includes(b.slug))
+    const blocks = sectionBlocks(config).filter((b) => ['rating', ...INPUT_TYPES].includes(b.slug))
     expect(blocks.length).toBe(INPUT_TYPES.length + 1)
     for (const block of blocks) {
       const lock = named<{ admin?: { hidden?: boolean }; defaultValue?: unknown; type: string }>(block.fields, 'prefillFromKey')
@@ -485,5 +487,83 @@ describe('plugin config', () => {
       const names = dataNames(block.fields)
       expect(names.indexOf('prefillFromKey') + 1, block.slug).toBe(names.indexOf('prefillParam'))
     }
+  })
+
+  test('key fields use the KeyField component', () => {
+    const config = formsPlugin({ fields: { fileUpload: true } })(baseConfig())
+    const keyFields: string[] = []
+    walk(collection(config, 'custom-forms').fields, (field, p) => {
+      if (/^sections(?:\.fields\.[A-Za-z]+)?\.(?:fieldKey|key)$/.test(p) && field.type === 'text') {
+        keyFields.push(p)
+        expect((field.admin as { components?: { Field?: unknown } }).components?.Field, p).toBe('payload-dynamic-forms/client#KeyField')
+      }
+    })
+    // The section key and the key of all 10 input blocks.
+    expect(keyFields).toContain('sections.key')
+    expect(keyFields.length).toBe(1 + 10)
+    // Rule keys and the prefill parameter use their own components.
+    const rule = named<{ admin: { components: { Field: string } } }>(fieldsAt(config, 'sections.visibilityRules.rows'), 'fieldKey')
+    expect(rule.admin.components.Field).toBe('payload-dynamic-forms/client#RuleFieldKeyField')
+    const target = named<{ admin: { components: { Field: string } } }>(fieldsAt(config, 'sections.nextStepRules'), 'targetSectionKey')
+    expect(target.admin.components.Field).toBe('payload-dynamic-forms/client#SectionTargetField')
+    for (const block of inputBlocks()) {
+      const prefill = named<{ admin: { components: { Field: string }; width: string } }>(block.fields, 'prefillParam')
+      expect(prefill.admin.components.Field, block.slug).toBe('payload-dynamic-forms/client#PrefillParamField')
+      expect(prefill.admin.width, block.slug).toBe('50%')
+      expect(named<{ admin: { width: string } }>(block.fields, 'fieldKey').admin.width, block.slug).toBe('50%')
+    }
+    expect((rule.admin as unknown as { width: string }).width).toBe('40%')
+  })
+
+  test('optional radio questions carry the no-answer hint', () => {
+    for (const options of [{}, { optionSources: { posts: { collection: 'posts', labelField: 'title', valueField: 'title' } } }]) {
+      const blocks = sectionBlocks(formsPlugin(options as never)(baseConfig()))
+      const radio = blocks.find((b) => b.slug === 'radio')!
+      const open = openFields(radio.fields)
+      const index = open.findIndex((f) => 'name' in f && f.name === 'noAnswerHint')
+      expect(index).toBeGreaterThan(-1)
+      const hint = open[index] as { admin: { components: { Field: string }; condition: (data: unknown, sibling: unknown) => boolean }; type: string }
+      expect(hint.type).toBe('ui')
+      expect(hint.admin.components.Field).toBe('payload-dynamic-forms/client#NoAnswerHint')
+      expect(hint.admin.condition({}, { required: false })).toBe(true)
+      expect(hint.admin.condition({}, {})).toBe(true)
+      expect(hint.admin.condition({}, { required: true })).toBe(false)
+      // Right after the choice fields, before the default and prefill row.
+      const names = open.map((f) => ('name' in f ? f.name : ''))
+      const lastChoice = Math.max(...['optionsFrom', 'options', 'sourceItems'].map((n) => names.indexOf(n)))
+      expect(index).toBe(lastChoice + 1)
+      expect(index).toBeLessThan(names.indexOf('defaultValue'))
+      for (const slug of ['select', 'checkboxGroup']) {
+        const other = blocks.find((b) => b.slug === slug)!
+        expect(JSON.stringify(other.fields), slug).not.toContain('noAnswerHint')
+      }
+    }
+  })
+
+  test('admin component paths name client exports', () => {
+    const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/exports/client.ts'), 'utf8')
+    expect(source.split('\n')[0]).toMatch(/^['"]use client['"]$/)
+    const exported = new Set([...source.matchAll(/export \{ (\w+) \}/g)].map((m) => m[1]))
+    expect([...exported].sort()).toEqual(['KeyField', 'NoAnswerHint', 'PrefillParamField', 'RuleFieldKeyField', 'SectionTargetField'])
+    const config = formsPlugin({ fields: { fileUpload: true } })(baseConfig())
+    const paths: string[] = []
+    for (const c of config.collections!) {
+      walk(c.fields, (field, p) => {
+        const component = (field as { admin?: { components?: { Field?: unknown } } }).admin?.components?.Field
+        if (component === undefined) {
+          return
+        }
+        const value = typeof component === 'string' ? component : String((component as { path?: string }).path)
+        // Payload's own slug field (`slugField()`) brings Payload's component; every other one is ours.
+        if (p === 'slug' && value === '@payloadcms/next/client#SlugField') {
+          return
+        }
+        paths.push(`${p}: ${value}`)
+        expect(value, p).toMatch(/^payload-dynamic-forms\/client#\w+$/)
+        expect(exported.has(value.split('#')[1]), p).toBe(true)
+      })
+    }
+    // Section key, 10 question keys, 10 prefill parameters, 12 rule keys, the next-step target, the radio hint.
+    expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1)
   })
 })

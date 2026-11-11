@@ -35,6 +35,11 @@
       "types": "./dist/exports/shared.d.ts",
       "import": "./dist/exports/shared.js",
       "default": "./dist/exports/shared.js"
+    },
+    "./client": {
+      "types": "./dist/exports/client.d.ts",
+      "import": "./dist/exports/client.js",
+      "default": "./dist/exports/client.js"
     }
   },
   "main": "./dist/index.js",
@@ -68,6 +73,8 @@
     "@swc-node/register": "1.10.9",
     "@swc/cli": "0.6.0",
     "@swc/core": "1.15.47",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
     "@types/node": "22.19.9",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -75,6 +82,7 @@
     "eslint": "^9.23.0",
     "eslint-config-next": "16.3.3",
     "graphql": "^16.8.1",
+    "jsdom": "31.0.0",
     "next": "16.3.3",
     "open": "^10.1.0",
     "payload": "3.92.1",
@@ -91,7 +99,9 @@
     "yaml": "2.8.1"
   },
   "peerDependencies": {
-    "payload": "^3.92.1"
+    "@payloadcms/ui": "^3.92.1",
+    "payload": "^3.92.1",
+    "react": "^19.2.1"
   },
   "engines": {
     "node": "^22.23.4 || >=24.22.1"

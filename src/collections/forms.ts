@@ -301,7 +301,16 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
                   {
                     type: 'row',
                     fields: [
-                      { name: 'key', type: 'text', admin: { width: '40%' }, required: true },
+                      {
+                        name: 'key',
+                        type: 'text',
+                        admin: {
+                          components: { Field: 'payload-dynamic-forms/client#KeyField' },
+                          description: 'Lower-case letters, numbers and dashes. Used in rules, links and {{tokens}}.',
+                          width: '40%',
+                        },
+                        required: true,
+                      },
                       { name: 'title', type: 'text', admin: { width: '60%' }, localized: true },
                     ],
                   },

@@ -98,4 +98,26 @@ describe('workers safety', () => {
     }
     expect(bad).toEqual([])
   })
+
+  test('only the client entry imports react or payload ui', () => {
+    const clientOnly = (file: string) => file.startsWith(path.join(root, 'src/admin') + path.sep) || file === path.join(root, 'src/exports/client.ts')
+    const all = filesUnder(path.join(root, 'src'))
+    const server = all.filter((file) => !clientOnly(file))
+    expect(server.length).toBeGreaterThan(20)
+    expect(all.filter(clientOnly).length).toBeGreaterThan(5)
+    const bad: string[] = []
+    for (const file of server) {
+      for (const spec of runtimeImports(fs.readFileSync(file, 'utf8'))) {
+        if (spec === 'react' || spec.startsWith('react/') || spec === 'react-dom' || spec === '@payloadcms/ui' || spec.startsWith('@payloadcms/ui/')) {
+          bad.push(`${path.relative(root, file)}: ${spec}`)
+        }
+        // Server code must not reach the admin components through a relative import either.
+        if (spec.startsWith('.') && clientOnly(path.resolve(path.dirname(file), spec).replace(/\.js$/, '.tsx'))) {
+          bad.push(`${path.relative(root, file)}: ${spec}`)
+        }
+      }
+    }
+    expect(bad).toEqual([])
+  })
 })
+

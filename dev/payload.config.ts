@@ -44,7 +44,8 @@ export function buildDevConfig(args: DevConfigArgs = {}) {
     path.join(os.tmpdir(), `payload-forms-${process.pid}-${Math.random().toString(36).slice(2)}.db`)
   return buildConfig({
     admin: {
-      importMap: { baseDir: path.resolve(dirname) },
+      // The dev app lives in dev/, so name the import map file (Payload looks under the cwd otherwise).
+      importMap: { baseDir: path.resolve(dirname), importMapFile: path.resolve(dirname, 'app/(payload)/admin/importMap.js') },
       user: 'users',
     },
     collections: [

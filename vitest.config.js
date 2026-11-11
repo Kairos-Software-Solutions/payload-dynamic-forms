@@ -19,7 +19,7 @@ export default defineConfig(() => {
     test: {
       environment: 'node',
       hookTimeout: 120_000,
-      include: ['tests/**/*.test.ts', 'tests/int/**/*.int.test.ts'],
+      include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'tests/int/**/*.int.test.ts'],
       maxWorkers: 2,
       setupFiles: ['./tests/setup/no-network.ts'],
       testTimeout: 60_000,

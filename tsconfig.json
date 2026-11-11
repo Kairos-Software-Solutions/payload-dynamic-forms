@@ -16,10 +16,11 @@
     "paths": {
       "@payload-config": ["./dev/payload.config.ts"],
       "payload-dynamic-forms": ["./src/index.ts"],
-      "payload-dynamic-forms/shared": ["./src/exports/shared.ts"]
+      "payload-dynamic-forms/shared": ["./src/exports/shared.ts"],
+      "payload-dynamic-forms/client": ["./src/exports/client.ts"]
     },
     "plugins": [{ "name": "next" }]
   },
-  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./dev/**/*.ts", "./dev/**/*.tsx", "./tests/**/*.ts", "./examples/**/*.tsx"],
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./dev/**/*.ts", "./dev/**/*.tsx", "./tests/**/*.ts", "./tests/**/*.tsx", "./examples/**/*.tsx"],
   "exclude": ["node_modules", "dist", "input", "dev/.next", "dev/payload-types.ts"]
 }

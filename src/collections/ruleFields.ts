@@ -12,6 +12,7 @@ export function ruleRowFields(): Field[] {
           name: 'fieldKey',
           type: 'text',
           admin: {
+            components: { Field: 'payload-dynamic-forms/client#RuleFieldKeyField' },
             description: 'A field key, or key.attribute for an attribute of the chosen option.',
             width: '40%',
           },
@@ -88,6 +89,7 @@ export function nextStepRulesField(): Field {
       {
         name: 'targetSectionKey',
         type: 'text',
+        admin: { components: { Field: 'payload-dynamic-forms/client#SectionTargetField' } },
         label: 'Next section',
         required: true,
       },

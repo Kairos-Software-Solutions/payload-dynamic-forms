@@ -60,6 +60,7 @@ export function headFields(): Field[] {
           name: 'fieldKey',
           type: 'text',
           admin: {
+            components: { Field: 'payload-dynamic-forms/client#KeyField' },
             description: 'Lower-case letters, numbers and dashes. Used in rules, links and {{tokens}}.',
             width: '50%',
           },
@@ -112,7 +113,11 @@ export function prefillRow(defaultValue: Field = TEXT_DEFAULT, lockDefault: () =
         {
           name: 'prefillParam',
           type: 'text',
-          admin: { description: 'Link parameter that prefills this answer. Locked: the key.', width: '50%' },
+          admin: {
+            components: { Field: 'payload-dynamic-forms/client#PrefillParamField' },
+            description: 'Link parameter that prefills this answer. Locked: the key.',
+            width: '50%',
+          },
           label: 'Prefill from link parameter',
         },
       ],
