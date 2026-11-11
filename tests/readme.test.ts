@@ -72,9 +72,11 @@ describe('README', () => {
       return end === -1 ? rest : rest.slice(0, end)
     }
     const changelog = sectionText('Changelog')
-    const first = changelog.split('\n').find((line) => line.startsWith('- '))
-    expect(first).toBeDefined()
-    expect(first!.slice(2)).toMatch(/^0\.3\.0\b/)
+    // 0.3.0 is present, after the 0.4.0 entry.
+    const entries = changelog.split('\n').filter((line) => line.startsWith('- '))
+    const at = entries.findIndex((line) => /^0\.3\.0\b/.test(line.slice(2)))
+    expect(at).toBeGreaterThan(entries.findIndex((line) => /^0\.4\.0\b/.test(line.slice(2))))
+    expect(at).toBeGreaterThan(-1)
 
     const migrations = sectionText('Migrations')
     const note = migrations.split('\n\n').find((paragraph) => paragraph.includes('0.3.0'))
@@ -85,5 +87,42 @@ describe('README', () => {
 
     expect(sectionText('Compatibility')).toMatch(/0\.3\.0 or later/)
     expect(sectionText('Rendering')).toContain('draft: true')
+  })
+
+  test('readme has the 0.4.0 changelog and migration note', () => {
+    const sectionText = (name: string) => {
+      const start = readme.indexOf(`\n## ${name}\n`)
+      expect(start, name).toBeGreaterThan(-1)
+      const rest = readme.slice(start + name.length + 5)
+      const end = rest.search(/^## /m)
+      return end === -1 ? rest : rest.slice(0, end)
+    }
+    const first = sectionText('Changelog')
+      .split('\n')
+      .find((line) => line.startsWith('- '))
+    expect(first!.slice(2)).toMatch(/^0\.4\.0\b/)
+
+    const migrations = sectionText('Migrations')
+    const note = migrations.slice(migrations.indexOf('**0.4.0.**'))
+    expect(migrations).toContain('**0.4.0.**')
+    for (const words of ['prefill_from_key', 'presentation_mode', 'payload generate:importmap', 'ADD COLUMN prefill_from_key', 'snapshot JSON']) {
+      expect(note, words).toContain(words)
+    }
+    expect(note).toMatch(/SQLite and D1/)
+    expect(note).toMatch(/rebuild of the forms table/)
+    expect(note).toMatch(/deletes the child rows/)
+    expect(note).toMatch(/saved with 0\.3\.0 keep their prefill parameter/)
+    expect(note).toMatch(/without their row ids/)
+    expect(note).toMatch(/overwrites a custom prefill parameter/)
+    expect(note).toMatch(/Rollback/)
+    expect(note).toMatch(/Postgres/)
+
+    // Install says to regenerate the import map; the field types describe the new defaults.
+    expect(sectionText('Install')).toContain('payload generate:importmap')
+    const options = sectionText('Options')
+    expect(options).toMatch(/Prefill lock/)
+    expect(options).toMatch(/at least two choices/)
+    expect(options).toMatch(/Step by step/)
+    expect(options).toMatch(/pick their field/)
   })
 })

@@ -12,7 +12,7 @@ Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin cal
 
 **What it does not do**
 
-- It ships **no visitor UI**: no React components, no styles, no admin components. Each app renders its own form markup with the helpers from `payload-dynamic-forms/shared` (see [Rendering](#rendering)).
+- It ships **no visitor UI**: no visitor components and no styles. Each app renders its own form markup with the helpers from `payload-dynamic-forms/shared` (see [Rendering](#rendering)). Its only React code is a few admin components for the forms collection (key input, prefill lock, rule pick-lists, an editor hint) in `payload-dynamic-forms/client`, which the fields name by import-map path.
 - It does not wrap Payload's official form builder; both can run in one app (their slugs differ).
 
 ## Install
@@ -27,7 +27,7 @@ yarn add payload-dynamic-forms
 pnpm add payload-dynamic-forms
 ```
 
-Then add the plugin to your Payload config:
+Then add the plugin to your Payload config (below), and run `payload generate:importmap` after installing or upgrading, so the admin finds the plugin's field components (`payload-dynamic-forms/client`). Payload 3 admins already have the peers `@payloadcms/ui` and `react`.
 
 ```ts
 import { buildConfig } from 'payload'
@@ -68,7 +68,14 @@ Every option is optional.
 
 ### Field types
 
-Built in: heading and help text (display only), text, email, long text, number, date, select, radio, checkbox, checkbox group and file upload. Each input has a key (stored as kebab-case), required (off by default), width, a default value, a link parameter to prefill from, show/hide rules, its own words (label, hint, placeholder, error when empty, error when invalid, row label in messages) and its type's limits.
+Built in: heading and help text (display only), text, email, long text, number, date, select, radio, checkbox, checkbox group and file upload. Each input has a key, required (off by default), width, its own words (label, hint, placeholder, error when empty, error when invalid, row label in messages), its type's own fields (choices, limits, upload settings), a default value with a link parameter to prefill from, and its show/hide rules last.
+
+- **Keys** (question and section) are formatted to lower-case kebab-case as you type, and again on save.
+- **Prefill lock**, like Payload's slug field: a locked question's link parameter is its key (`?<key>=`), on screen and on save; Unlock to type your own parameter or leave it empty (no prefill). New questions start locked, except a single checkbox, which starts unlocked with no parameter so a link can't pre-tick a consent box. The lock is stored in the hidden `prefillFromKey` field.
+- **Rules** pick their field, and next-step rules their next section, from lists of the keys in the form as you edit it. A stored key the form no longer has stays visible as "(not in this form)", and saving names it.
+- **Radio and select** need at least two choices: two typed options, or two picked items when the choices come from a collection (picking none, meaning every published item, is always fine). A checkbox group may have one option.
+- An optional radio question shows editors a hint to add a choice such as "None of the above" or "Not sure", because visitors can't clear a radio answer.
+- New forms start **Step by step**; "Single page" is still an option, and saved forms keep their mode.
 
 A new type:
 
@@ -113,6 +120,16 @@ The plugin adds collections, so apps on Postgres or SQLite/D1 with migrations ru
 Setting `webhooks.secretsInAdmin: false` also changes the schema: see [Secrets from your config](#secrets-from-your-config).
 
 **0.3.0.** With localization, the `subject` and `body` of the email rows move to the `_locales` table (`custom_forms_delivery_emails_locales`, and the same in the versions tables, `_custom_forms_v_version_delivery_emails_locales`). Payload's generated migration changes the schema only: in that migration, copy each row's old subject and body values into the default locale's rows, or enter them again. Without localization nothing changes.
+
+**0.4.0.** One schema change and a new import map:
+
+- Every input block table of the forms collection (built-in and your own types) and its `_v` versions table gets a nullable boolean column `prefill_from_key` (no default, so existing rows stay `NULL`), and the forms table's `presentation_mode` default changes from `singlePage` to `steps`. Nothing is renamed or moved.
+- **Postgres:** run the generated migration (`payload migrate:create`, read it, `payload migrate`).
+- **SQLite and D1: don't run the generated migration.** drizzle-kit turns the default change into a rebuild of the forms table (copy, `DROP TABLE`, rename); D1 ignores its `PRAGMA foreign_keys=OFF`, so the drop deletes the child rows: sections, questions and delivery rows. Run `payload migrate:create`, keep the generated snapshot JSON, and replace the migration's SQL with only `ALTER TABLE <table> ADD COLUMN prefill_from_key integer` for every input block table and every matching `_v` table (the names are in the generated SQL). Leave the old `presentation_mode` default: new forms still start step by step, because Payload writes the value on create.
+- Run `payload generate:importmap` after upgrading, or the forms admin shows missing-component errors for the key, prefill and rule fields.
+- Questions saved with 0.3.0 keep their prefill parameter: an empty one still prefills nothing, a typed one keeps working. They show unlocked; click Lock to make one follow its key. Saved forms keep their presentation mode. A radio or select with one choice keeps working for visitors, but its form's next save is refused until a choice is added.
+- An update that resends `sections` without their row ids (a seed, a script) resets every question's lock to its default (locked) and so overwrites a custom prefill parameter with the key. Send the row ids, or `prefillFromKey` and `prefillParam` explicitly.
+- Rollback: pin 0.3.0 and run `payload generate:importmap` again (the 0.4.0 map imports `payload-dynamic-forms/client`). 0.3.0 ignores the new column; parameters written by locked saves keep prefilling as plain parameters.
 
 ## Switching off
 
@@ -452,7 +469,7 @@ Visitor IPs are not stored unless `metadata: { ip: true }`. The rate limit keeps
 
 - Use 0.3.0 or later: 0.1.0 and 0.2.0 were published with entry points at files the package doesn't contain, so they can't be imported.
 - Payload `^3.92.1` (developed and tested against 3.92.1). Payload 4 is not supported yet.
-- The runtime code uses Web APIs only (Web Crypto, `fetch`, `node:buffer` for uploads), so it runs on Node and on Cloudflare Workers; the `/shared` entry imports nothing from Payload, React or Node and runs in the browser.
+- The runtime code uses Web APIs only (Web Crypto, `fetch`, `node:buffer` for uploads), so it runs on Node and on Cloudflare Workers; the `/shared` entry imports nothing from Payload, React or Node and runs in the browser. React and `@payloadcms/ui` are used only by the `/client` entry (admin components, `'use client'`).
 - Tested on SQLite (`@payloadcms/db-sqlite`). Postgres and Workers/D1 are not tested here; nested selects carry short `dbName`s for Postgres.
 
 ## Development
@@ -463,7 +480,8 @@ Scaffolded from Payload's plugin template: `create-payload-app` 3.93.0 `--templa
 corepack enable
 yarn install
 yarn lint && yarn typecheck && yarn test && yarn build
-yarn build && yarn check:packed   # packs, installs the tarball outside the repo, imports both entries (needs the npm registry)
+yarn build && yarn check:packed   # packs, installs the tarball outside the repo, imports the main and shared entries, resolves the client entry (needs the npm registry)
+yarn generate:importmap   # after changing admin components: rewrites the dev app's import map
 yarn spec:validate   # OpenSpec plans in openspec/
 yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
 ```
@@ -474,6 +492,7 @@ yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
 
 ## Changelog
 
+- 0.4.0: admin field conventions. Rules last in each question, labelled "Rules", "Field" and "Next section"; checkboxes level with the inputs beside them; keys formatted as you type; prefill lock like the slug field (new questions prefill by their key, single checkboxes start unlocked); pick-lists for rule keys and next sections; radio and select need two choices; new forms start step by step; a hint under optional radio questions. New `payload-dynamic-forms/client` entry with the admin components and the peers `@payloadcms/ui` and `react`. Migration and `payload generate:importmap` needed (see [Migrations](#migrations)).
 - 0.3.0: importable package (entry points in `dist/`), email subject and body per language (visitor copy in the visitor's language, team email in the default language), draft read for previews. Migration needed with localization (see [Migrations](#migrations)).
 
 ## Licence
