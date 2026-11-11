@@ -8671,7 +8671,9 @@ __metadata:
     vitest: "npm:4.0.18"
     yaml: "npm:2.8.1"
   peerDependencies:
+    "@payloadcms/ui": ^3.92.1
     payload: ^3.92.1
+    react: ^19.2.1
   languageName: unknown
   linkType: soft
 
