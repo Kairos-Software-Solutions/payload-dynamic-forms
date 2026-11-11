@@ -225,7 +225,14 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
   })
   return {
     // A single checkbox starts unlocked with no parameter: a link can't pre-tick a consent box.
-    checkbox: input('checkbox', 'Checkbox', [], { name: 'defaultValue', type: 'checkbox', defaultValue: false }, () => false),
+    // Its default shares the prefill row with an input, so it gets the level style.
+    checkbox: input(
+      'checkbox',
+      'Checkbox',
+      [],
+      { name: 'defaultValue', type: 'checkbox', admin: { style: LEVEL_CHECKBOX_STYLE }, defaultValue: false },
+      () => false,
+    ),
     checkboxGroup: input('checkboxGroup', 'Checkbox group', choiceFields(ctx.sources), {
       name: 'defaultValue',
       type: 'text',

@@ -446,6 +446,13 @@ describe('plugin config', () => {
       expect(required.defaultValue, block.slug).toBe(false)
       expect(required.admin?.width, block.slug).toBe('25%')
     }
+    // The single checkbox's default shares the prefill row with the parameter input.
+    const checkbox = inputBlocks().find((b) => b.slug === 'checkbox')
+    const checkboxDefault = named<(typeof checks)[number]>(checkbox?.fields ?? [], 'defaultValue')
+    expect(checkboxDefault.type).toBe('checkbox')
+    expect(checkboxDefault.defaultValue).toBe(false)
+    expect(checkboxDefault.admin?.width).toBe('50%')
+    checks.push(checkboxDefault)
     for (const path of ['delivery.emails', 'delivery.webhooks']) {
       const enabled = named<(typeof checks)[number]>(fieldsAt(config, path), 'enabled')
       expect(enabled.type, path).toBe('checkbox')
@@ -453,7 +460,7 @@ describe('plugin config', () => {
       expect(enabled.admin?.width, path).toBe('20%')
       checks.push(enabled)
     }
-    expect(checks.length).toBe(INPUT_TYPES.length + 2)
+    expect(checks.length).toBe(INPUT_TYPES.length + 3)
     for (const check of checks) {
       expect(check.admin?.style, check.name).toBe(LEVEL_CHECKBOX_STYLE)
     }

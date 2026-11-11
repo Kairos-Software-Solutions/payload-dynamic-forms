@@ -54,6 +54,7 @@ function useField<T>({ path, potentiallyStalePath }: { path?: string; potentiall
 
 type InputProps = {
   AfterInput?: React.ReactNode
+  description?: unknown
   inputRef?: React.RefObject<HTMLInputElement>
   label?: unknown
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
@@ -63,11 +64,21 @@ type InputProps = {
   value?: string
 }
 
-function TextInput({ AfterInput, inputRef, label, onChange, path, readOnly, style, value }: InputProps) {
+/**
+ * The element tree of `@payloadcms/ui@3.92.1` `fields/Text/Input`: the field (`.field-type.text`,
+ * relative per its scss) holds the label and `.field-type__wrap` (relative per
+ * `forms/RenderFields/index.scss`), which holds the input, `AfterInput` and then the description.
+ * The inline positions stand in for those stylesheets, which jsdom doesn't load.
+ */
+function TextInput({ AfterInput, description, inputRef, label, onChange, path, readOnly, style, value }: InputProps) {
   return (
-    <div data-path={path} style={style}>
-      <input aria-label={typeof label === 'string' ? label : path} onChange={onChange} readOnly={readOnly} ref={inputRef} value={value ?? ''} />
-      {AfterInput}
+    <div className="field-type text" data-path={path} style={{ ...style, position: 'relative' }}>
+      <span>{typeof label === 'string' ? label : ''}</span>
+      <div className="field-type__wrap" style={{ position: 'relative' }}>
+        <input aria-label={typeof label === 'string' ? label : path} onChange={onChange} readOnly={readOnly} ref={inputRef} value={value ?? ''} />
+        {AfterInput}
+        {typeof description === 'string' ? <p className="field-description">{description}</p> : null}
+      </div>
     </div>
   )
 }

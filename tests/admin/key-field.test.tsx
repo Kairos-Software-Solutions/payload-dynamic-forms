@@ -26,6 +26,6 @@ describe('key field', () => {
     fireEvent.change(input, { target: { value: 'project-type ' } })
     expect(form.get(path)).toBe('project-type-')
     // The row width reaches the wrapper.
-    expect((input.parentElement as HTMLElement).style.getPropertyValue('--field-width')).toBe('50%')
+    expect((input.closest('.field-type') as HTMLElement).style.getPropertyValue('--field-width')).toBe('50%')
   })
 })

@@ -7,11 +7,17 @@ import { normalizeKey } from '../shared/rules.js'
 import { siblingPath } from './formKeys.js'
 import { useTextFieldProps } from './useTextFieldProps.js'
 
-const ACTIONS_STYLE: React.CSSProperties = {
+/**
+ * Placed like `@payloadcms/ui` `fields/Slug`'s `__actions`: absolute in `.field-type__wrap`, flex,
+ * centred, pinned to the inline end. The slug's wrap holds only the input, so its `bottom: 0` ends
+ * at the input; this field's wrap also holds the description under the input, so the box takes
+ * the input's own height (`formInput`: `base(2)`) instead, and the button is centred in the input.
+ */
+export const ACTIONS_STYLE: React.CSSProperties = {
   alignItems: 'center',
-  bottom: 0,
   display: 'flex',
   gap: 'calc(var(--base) / 2)',
+  height: 'calc(var(--base) * 2)',
   insetInlineEnd: 'calc(var(--base) / 2)',
   position: 'absolute',
   top: 0,
