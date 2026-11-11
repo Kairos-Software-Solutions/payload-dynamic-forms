@@ -1,12 +1,22 @@
 ## ADDED Requirements
 
 ### Requirement: Prefill parameter follows the key
-Each input question SHALL have a hidden lock, `prefillFromKey`, like Payload's slug field. Locked, the link parameter SHALL equal the question's key, on screen and on save; unlocked, the editor's parameter (or none) SHALL be kept. New questions SHALL start locked. Questions saved under 0.3.0 have no lock value and SHALL be treated as unlocked, so their parameter, empty or not, is kept.
+Each input question SHALL have a hidden lock, `prefillFromKey`, like Payload's slug field, whose default is a function (no database default). Locked, the link parameter SHALL equal the key, on screen and on save; unlocked, the editor's parameter (or none) SHALL be kept. New questions SHALL start locked, except single checkbox questions, which start unlocked. 0.3.0 questions have no lock value and SHALL be treated as unlocked, so their parameter is kept.
 
 #### Scenario: New question prefills by its key
 - **WHEN** a form is created through the API with a text question keyed ` Full Name ` and no `prefillFromKey` or `prefillParam`
 - **THEN** it is stored with `prefillFromKey: true` and `prefillParam: 'full-name'`, and `initialAnswers` with `?full-name=Ana` starts it as `Ana`
 - **CHECK** tests/int/form-save.int.test.ts › "new questions are locked and prefill by their key"
+
+#### Scenario: New checkbox question starts unlocked
+- **WHEN** a form is created through the API with a single checkbox question keyed `consent` and no `prefillFromKey` or `prefillParam`
+- **THEN** it is stored with `prefillFromKey: false` and an empty `prefillParam`, and `initialAnswers` with `?consent=yes` leaves it unticked; saved again with `prefillFromKey: true`, its `prefillParam` is `consent`
+- **CHECK** tests/int/form-save.int.test.ts › "new checkbox questions start unlocked"
+
+#### Scenario: Lock default adds no database default
+- **WHEN** the test reads `prefillFromKey` in every built-in input block and in an app-defined type
+- **THEN** it is a hidden checkbox whose `defaultValue` is a function, returning `false` in the single checkbox block and `true` in every other block
+- **CHECK** tests/plugin-config.test.ts › "prefillFromKey default is a function"
 
 #### Scenario: Locked parameter follows a key change
 - **WHEN** a locked question's key changes from `need` to `topic` and the form is saved
@@ -19,12 +29,12 @@ Each input question SHALL have a hidden lock, `prefillFromKey`, like Payload's s
 - **CHECK** tests/int/form-save.int.test.ts › "an unlocked prefill parameter is kept"
 
 #### Scenario: 0.3.0 question with no parameter stays unprefilled
-- **WHEN** a stored question has `prefillFromKey` null and an empty `prefillParam` (written straight to the database, as a 0.3.0 row reads after the migration) and the form is updated through the API without those fields
+- **WHEN** a stored question has `prefillFromKey` null and an empty `prefillParam` (written straight to the database, as a 0.3.0 row reads after the migration) and the form is updated through the Local API resending `sections` with every section and question row id, without those two fields
 - **THEN** `prefillFromKey` stays null, `prefillParam` stays empty, and `initialAnswers` with `?<key>=x` leaves the default
 - **CHECK** tests/int/form-save.int.test.ts › "0.3.0 questions without a parameter stay unprefilled"
 
 #### Scenario: 0.3.0 question with a parameter keeps it
-- **WHEN** a stored question has `prefillFromKey` null and `prefillParam: 'need'` while its key is `topic`, and the form is updated
+- **WHEN** a stored question has `prefillFromKey` null and `prefillParam: 'need'` while its key is `topic`, and the form is updated through the Local API resending `sections` with their row ids
 - **THEN** `prefillParam` is still `need`
 - **CHECK** tests/int/form-save.int.test.ts › "0.3.0 questions keep their parameter"
 

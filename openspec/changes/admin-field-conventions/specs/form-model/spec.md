@@ -19,12 +19,17 @@ Inside every input block, what the question is SHALL come first (key row, words,
 - **CHECK** tests/plugin-config.test.ts › "field names are unchanged from 0.3.0 apart from prefillFromKey"
 
 ### Requirement: Rule lists labelled Rules
-The arrays of rules in a show/hide group and in a next-step rule SHALL be labelled "Rule" (singular) and "Rules" (plural) and SHALL keep the name `rows`, so no stored data moves.
+The arrays of rules in a show/hide group and in a next-step rule SHALL be labelled "Rule" (singular) and "Rules" (plural) and SHALL keep the name `rows`, so no stored data moves. A rule's field key SHALL be labelled "Field" and a next-step rule's target "Next section", with their names unchanged.
 
 #### Scenario: Rule arrays read Rules and keep their name
 - **WHEN** the test reads the field show/hide group, the section show/hide group and the next-step rule
 - **THEN** each has an array named `rows` with labels `{ singular: 'Rule', plural: 'Rules' }`
 - **CHECK** tests/plugin-config.test.ts › "rule arrays are labelled Rules and still named rows"
+
+#### Scenario: Rule fields read Field and Next section
+- **WHEN** the test reads the rule rows of the field show/hide group, the section show/hide group and the next-step rule
+- **THEN** each rule's `fieldKey` has the label "Field" and the next-step rule's `targetSectionKey` has the label "Next section", both still `type: 'text'` with those names
+- **CHECK** tests/plugin-config.test.ts › "rule fields are labelled Field and Next section"
 
 ### Requirement: Checkboxes level with the inputs
 A checkbox that shares a row with inputs SHALL carry the plugin's shared level style in `admin.style`: a question's `required`, and the `enabled` of each email and webhook row. Names, defaults and widths SHALL stay as in 0.3.0.
@@ -35,7 +40,7 @@ A checkbox that shares a row with inputs SHALL carry the plugin's shared level s
 - **CHECK** tests/plugin-config.test.ts › "row checkboxes carry the level style"
 
 ### Requirement: At least two choices for radio and select
-A radio or select question SHALL have at least two choices: typed options SHALL have `minRows: 2`, and saving SHALL refuse a radio or select with fewer than two typed options, exactly one picked collection item, or an empty pick when the collection has fewer than two published items. Checkbox groups SHALL keep allowing one option.
+A radio or select question SHALL have at least two choices: typed options SHALL have `minRows: 2`, and saving SHALL refuse a radio or select whose typed choices number fewer than two or that picks exactly one collection item. An empty pick SHALL never be counted or refused, so a save never depends on another collection's publish state. Checkbox groups SHALL keep allowing one option.
 
 #### Scenario: One typed choice is refused
 - **WHEN** a form is saved with a radio, or a select, that has one typed option
@@ -43,9 +48,9 @@ A radio or select question SHALL have at least two choices: typed options SHALL 
 - **CHECK** tests/int/form-save.int.test.ts › "radio and select need at least two typed choices"
 
 #### Scenario: One picked item is refused
-- **WHEN** a radio takes its choices from a collection and one item is picked, or none is picked and the collection has one published item
-- **THEN** the save fails with the same message; with two picked items, or none picked and two published items, it saves
-- **CHECK** tests/int/form-save.int.test.ts › "radio and select from a collection need at least two items"
+- **WHEN** a radio, or a select, takes its choices from a collection and exactly one item is picked
+- **THEN** the save fails with the same message; with two picked items it saves, and with none picked it saves even when the collection has only one published item
+- **CHECK** tests/int/form-save.int.test.ts › "radio and select refuse a single picked item"
 
 #### Scenario: Checkbox group keeps one option
 - **WHEN** a checkbox group with one typed option is saved

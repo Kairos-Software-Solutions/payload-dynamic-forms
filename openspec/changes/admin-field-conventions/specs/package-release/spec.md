@@ -15,7 +15,7 @@ The README SHALL cover: what the plugin does and doesn't do (no visitor UI), ins
 
 #### Scenario: Changelog and 0.3.0 migration note
 - **WHEN** the test reads the README
-- **THEN** the first entry under `## Changelog` starts with `0.4.0` and a later one with `0.3.0`; the Migrations section has a 0.4.0 paragraph naming `prefill_from_key`, `presentation_mode` and `payload generate:importmap` and saying 0.3.0 questions keep their prefill parameter, and its 0.3.0 paragraph that names the `_locales` table and says to copy the old subject and body values, the Compatibility section says to use 0.3.0 or later, and the Rendering section shows `draft: true`
+- **THEN** the first entry under `## Changelog` starts with `0.4.0` and a later one with `0.3.0`; the Migrations section has a 0.4.0 paragraph naming `prefill_from_key`, `presentation_mode` and `payload generate:importmap`, saying 0.3.0 questions keep their prefill parameter, warning that on SQLite and D1 the generated migration rebuilds the forms table and loses its child rows so those sites hand-write `ADD COLUMN prefill_from_key` (keeping the generated snapshot JSON), saying updates that resend `sections` without row ids reset the lock and overwrite a custom prefill parameter, and giving the rollback, and its 0.3.0 paragraph that names the `_locales` table and says to copy the old subject and body values, the Compatibility section says to use 0.3.0 or later, and the Rendering section shows `draft: true`
 - **CHECK** tests/readme.test.ts › "readme has the 0.3.0 changelog and migration note"; tests/readme.test.ts › "readme has the 0.4.0 changelog and migration note"
 
 #### Scenario: README uses the package name
