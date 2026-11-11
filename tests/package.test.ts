@@ -9,11 +9,11 @@ const licence = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8')
 describe('package', () => {
   test('package metadata and licence agree', () => {
     expect(pkg.name).toBe('payload-dynamic-forms')
-    expect(pkg.version).toBe('0.3.0')
+    expect(pkg.version).toBe('0.4.0')
     expect(pkg.license).toBe('MIT')
     expect(licence.split('\n')[0]).toBe(`${pkg.license} License`)
     expect(licence).toContain('Copyright (c) 2026 Kairos Software Solutions')
-    expect(pkg.peerDependencies).toEqual({ payload: '^3.92.1' })
+    expect(pkg.peerDependencies).toEqual({ '@payloadcms/ui': '^3.92.1', payload: '^3.92.1', react: '^19.2.1' })
     expect(pkg.dependencies ?? {}).toEqual({})
     expect(pkg.publishConfig).toEqual({ access: 'public' })
     expect(pkg.repository.url).toContain('github.com/Kairos-Software-Solutions/payload-dynamic-forms')
@@ -31,7 +31,7 @@ describe('package', () => {
   test('entry fields point at dist and publishConfig holds only access', () => {
     expect(pkg.main).toBe('./dist/index.js')
     expect(pkg.types).toBe('./dist/index.d.ts')
-    expect(Object.keys(pkg.exports)).toEqual(['.', './shared'])
+    expect(Object.keys(pkg.exports)).toEqual(['.', './shared', './client'])
     for (const [entry, conditions] of Object.entries(pkg.exports as Record<string, Record<string, string>>)) {
       // npm publish ships these fields as written; `types` must come first (Node docs).
       expect(Object.keys(conditions), entry).toEqual(['types', 'import', 'default'])
@@ -48,6 +48,11 @@ describe('package', () => {
       ['types', './dist/exports/shared.d.ts'],
       ['import', './dist/exports/shared.js'],
       ['default', './dist/exports/shared.js'],
+    ])
+    expect(Object.entries(pkg.exports['./client'])).toEqual([
+      ['types', './dist/exports/client.d.ts'],
+      ['import', './dist/exports/client.js'],
+      ['default', './dist/exports/client.js'],
     ])
     expect(JSON.stringify({ exports: pkg.exports, main: pkg.main, types: pkg.types })).not.toContain('./src/')
     expect(pkg.publishConfig).toEqual({ access: 'public' })

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Packs the package (or takes a .tgz path), refuses a manifest whose entry fields name files the
-// tarball doesn't hold, then installs it with `payload` into a scratch ESM app outside the repo,
-// imports both entries by name and typechecks them. Needs the npm registry; not part of `yarn test`.
+// tarball doesn't hold (or that has no `./client` entry), then installs it with `payload`,
+// `@payloadcms/ui` and `react` into a scratch ESM app outside the repo, imports the main and shared
+// entries by name, resolves the client entry without running it (`@payloadcms/ui` imports .scss,
+// which plain Node can't load) and typechecks all three. Needs the npm registry; not part of
+// `yarn test`.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -66,6 +69,9 @@ export function manifestErrors(manifest, files) {
   if (!manifest.main && !manifest.exports) {
     errors.push('main and exports: neither is set')
   }
+  if (!manifest.exports || typeof manifest.exports !== 'object' || !manifest.exports['./client']) {
+    errors.push('exports["./client"]: missing (the admin components entry)')
+  }
   return errors
 }
 
@@ -111,6 +117,10 @@ function main(argv) {
         'install',
         tarball,
         `payload@${repoPkg.devDependencies.payload}`,
+        `@payloadcms/ui@${repoPkg.devDependencies['@payloadcms/ui']}`,
+        `react@${repoPkg.devDependencies.react}`,
+        `react-dom@${repoPkg.devDependencies['react-dom']}`,
+        `@types/react@${repoPkg.devDependencies['@types/react']}`,
         `typescript@${repoPkg.devDependencies.typescript}`,
         '--no-audit',
         '--no-fund',
@@ -127,21 +137,31 @@ function main(argv) {
       const missing = []
       for (const name of ['formsPlugin', 'formBlock', 'getPublicForm']) if (main[name] === undefined) missing.push('${NAME}: ' + name)
       for (const name of ['evaluateRules', 'buildWhatsAppMessage', 'whatsappUrl', 'interpolate', 'DEFAULT_WORDS']) if (shared[name] === undefined) missing.push('${NAME}/shared: ' + name)
-      const resolved = [import.meta.resolve('${NAME}'), import.meta.resolve('${NAME}/shared')]
-      const expected = ['/node_modules/${NAME}/dist/index.js', '/node_modules/${NAME}/dist/exports/shared.js']
+      // The client entry is resolved, not imported: it pulls in @payloadcms/ui, which imports .scss.
+      const resolved = [import.meta.resolve('${NAME}'), import.meta.resolve('${NAME}/shared'), import.meta.resolve('${NAME}/client')]
+      const expected = ['/node_modules/${NAME}/dist/index.js', '/node_modules/${NAME}/dist/exports/shared.js', '/node_modules/${NAME}/dist/exports/client.js']
       resolved.forEach((url, i) => { if (!url.endsWith(expected[i])) missing.push('resolves to ' + url + ', expected …' + expected[i]) })
       if (missing.length) { console.error(missing.join('\\n')); process.exit(1) }
     `
     run(process.execPath, ['--input-type=module', '-e', probe], { cwd: app })
+
+    // The client entry keeps its directive, so Next treats the admin components as client code.
+    const clientFile = path.join(app, 'node_modules', NAME, 'dist', 'exports', 'client.js')
+    const firstLine = fs.readFileSync(clientFile, 'utf8').split('\n')[0].trim()
+    if (!/^(['"])use client\1;?$/.test(firstLine)) {
+      throw new Error(`${NAME}/client: the first line of dist/exports/client.js is ${JSON.stringify(firstLine)}, not 'use client'`)
+    }
 
     // Types resolve for both entries (a missing declaration is TS7016 under strict).
     fs.writeFileSync(
       path.join(app, 'check.ts'),
       [
         `import { formsPlugin } from '${NAME}'`,
+        `import { KeyField, NoAnswerHint, PrefillParamField, RuleFieldKeyField, SectionTargetField } from '${NAME}/client'`,
         `import { evaluateRules } from '${NAME}/shared'`,
         '',
         'export const used: [typeof formsPlugin, typeof evaluateRules] = [formsPlugin, evaluateRules]',
+        'export const components = [KeyField, PrefillParamField, RuleFieldKeyField, SectionTargetField, NoAnswerHint] as const',
         '',
       ].join('\n'),
     )
@@ -159,7 +179,7 @@ function main(argv) {
     run(process.execPath, [path.join(app, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', '.'], { cwd: app })
 
     const seconds = ((Date.now() - started) / 1000).toFixed(1)
-    console.log(`ok ${files.length} files, both entries import, types resolve (${scratch})`)
+    console.log(`ok ${files.length} files, 3 entries resolve, types resolve (${scratch})`)
     console.error(`(${seconds} s)`)
     return 0
   } catch (error) {
