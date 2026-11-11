@@ -138,6 +138,27 @@ export function validateFormBeforeSave(options: ResolvedOptions): CollectionBefo
       })
     })
 
+    // Radio and select need two choices. Only what the form holds counts: typed options, or
+    // explicitly picked items. An empty pick (every published item) is never refused, so a save
+    // never depends on another collection's publish state.
+    sections.forEach((section, s) => {
+      ;(section?.fields || []).forEach((field: FieldBlock, f) => {
+        if (!isInputBlock(field) || (field.blockType !== 'radio' && field.blockType !== 'select')) {
+          return
+        }
+        const typed = !field.optionsFrom || field.optionsFrom === 'typed'
+        const picked = Array.isArray(field.sourceItems) ? field.sourceItems.length : 0
+        const tooFew = typed ? (field.options?.length ?? 0) < 2 : picked === 1
+        if (tooFew) {
+          const name = field.words?.label || field.fieldKey || `${f + 1}`
+          issues.push({
+            message: `${name}: a ${field.blockType} needs at least 2 choices.`,
+            path: `sections.${s}.fields.${f}.${typed ? 'options' : 'sourceItems'}`,
+          })
+        }
+      })
+    })
+
     // Rules and step targets.
     const checkRules = (group: null | RuleGroup | undefined, path: string) => {
       normalizeRuleKeys(group)

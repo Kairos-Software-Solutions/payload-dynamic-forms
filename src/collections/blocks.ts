@@ -3,6 +3,7 @@ import type { Block, Field } from 'payload'
 import type { FieldTypeChecks } from '../shared/types.js'
 import type { FieldTypeDefinition, FormsPluginOptions, OptionSource } from '../types.js'
 
+import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
 import { ruleGroupField } from './ruleFields.js'
 
 const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
@@ -47,8 +48,10 @@ export function fieldWordsField(): Field {
   }
 }
 
-/** Fields every input block has: key, width, required, words, default, link parameter, rules. */
-export function baseInputFields(defaultValue: Field = { name: 'defaultValue', type: 'text', localized: true }): Field[] {
+const TEXT_DEFAULT: Field = { name: 'defaultValue', type: 'text', localized: true }
+
+/** What a question is: the key row (key, width, required) and its words. */
+export function headFields(): Field[] {
   return [
     {
       type: 'row',
@@ -56,7 +59,10 @@ export function baseInputFields(defaultValue: Field = { name: 'defaultValue', ty
         {
           name: 'fieldKey',
           type: 'text',
-          admin: { description: 'Stored as lower-case kebab-case. Used in rules and {{tokens}}.', width: '50%' },
+          admin: {
+            description: 'Lower-case letters, numbers and dashes. Used in rules, links and {{tokens}}.',
+            width: '50%',
+          },
           label: 'Key',
           required: true,
         },
@@ -74,12 +80,18 @@ export function baseInputFields(defaultValue: Field = { name: 'defaultValue', ty
         {
           name: 'required',
           type: 'checkbox',
-          admin: { width: '25%' },
+          admin: { style: LEVEL_CHECKBOX_STYLE, width: '25%' },
           defaultValue: false,
         },
       ],
     },
     fieldWordsField(),
+  ]
+}
+
+/** The default answer and the link parameter that prefills it. */
+export function prefillRow(defaultValue: Field = TEXT_DEFAULT): Field[] {
+  return [
     {
       type: 'row',
       fields: [
@@ -92,8 +104,15 @@ export function baseInputFields(defaultValue: Field = { name: 'defaultValue', ty
         },
       ],
     },
-    ruleGroupField(),
   ]
+}
+
+/**
+ * Fields every input block has, in their admin order: key row, words, default and link parameter,
+ * rules. A block's own fields go between the words and the default row (see `builtInBlocks`).
+ */
+export function baseInputFields(defaultValue: Field = TEXT_DEFAULT): Field[] {
+  return [...headFields(), ...prefillRow(defaultValue), ruleGroupField()]
 }
 
 function lengthLimits(): Field {
@@ -106,7 +125,7 @@ function lengthLimits(): Field {
   }
 }
 
-function choiceFields(sources: Record<string, OptionSource>): Field[] {
+function choiceFields(sources: Record<string, OptionSource>, { minOptions }: { minOptions?: number } = {}): Field[] {
   const sourceKeys = Object.keys(sources)
   const typedOptions: Field = {
     name: 'options',
@@ -114,6 +133,7 @@ function choiceFields(sources: Record<string, OptionSource>): Field[] {
     admin: sourceKeys.length
       ? { condition: (_data, sibling) => !sibling?.optionsFrom || sibling.optionsFrom === 'typed' }
       : {},
+    ...(minOptions ? { minRows: minOptions } : {}),
     fields: [
       {
         type: 'row',
@@ -160,6 +180,18 @@ function choiceFields(sources: Record<string, OptionSource>): Field[] {
   ]
 }
 
+/** Editor hint under an optional radio question's choices; stores nothing. */
+function noAnswerHintField(): Field {
+  return {
+    name: 'noAnswerHint',
+    type: 'ui',
+    admin: {
+      components: { Field: 'payload-dynamic-forms/client#NoAnswerHint' },
+      condition: (_data, sibling) => !sibling?.required,
+    },
+  }
+}
+
 export type BlockContext = {
   mimeTypes: string[]
   sources: Record<string, OptionSource>
@@ -167,9 +199,10 @@ export type BlockContext = {
 
 /** The built-in field blocks, in their admin order. */
 export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
-  const input = (slug: string, singular: string, extra: Field[], defaultValue?: Field): Block => ({
+  // What the question is, then the type's own fields, then the default and prefill row, rules last.
+  const input = (slug: string, singular: string, typeFields: Field[], defaultValue?: Field): Block => ({
     slug,
-    fields: [...baseInputFields(defaultValue), ...extra],
+    fields: [...headFields(), ...typeFields, ...prefillRow(defaultValue), ruleGroupField()],
     labels: { plural: `${singular} fields`, singular },
   })
   return {
@@ -231,8 +264,8 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
         ],
       },
     ]),
-    radio: input('radio', 'Radio', choiceFields(ctx.sources)),
-    select: input('select', 'Select', choiceFields(ctx.sources)),
+    radio: input('radio', 'Radio', [...choiceFields(ctx.sources, { minOptions: 2 }), noAnswerHintField()]),
+    select: input('select', 'Select', choiceFields(ctx.sources, { minOptions: 2 })),
     text: input('text', 'Text', [lengthLimits()]),
     textarea: input('textarea', 'Long text', [lengthLimits()]),
   }
@@ -311,8 +344,15 @@ export function buildFieldBlocks(
       throw new Error(`formsPlugin: field type "${type}" is not built in and needs { block, validate? }.`)
     }
     const own = new Set(entry.block.fields.map((f) => ('name' in f ? f.name : '')).filter(Boolean))
-    const base = baseInputFields().filter((f) => !('name' in f) || !own.has(f.name))
-    blocks.push({ ...entry.block, slug: entry.block.slug || type, fields: [...base, ...entry.block.fields] })
+    const notOwn = (f: Field) => !('name' in f) || !own.has(f.name)
+    // The type's own fields after the key row and words, before the default row and the rules.
+    const fields = [
+      ...headFields().filter(notOwn),
+      ...entry.block.fields,
+      ...prefillRow().filter(notOwn),
+      ...[ruleGroupField()].filter(notOwn),
+    ]
+    blocks.push({ ...entry.block, slug: entry.block.slug || type, fields })
     fieldTypes[entry.block.slug || type] = {
       normalize: entry.normalize,
       toText: entry.toText,

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { DEFAULT_WORDS, WORD_KEYS } from '../../src/exports/shared.js'
+import { getPublicForm } from '../../src/index.js'
 import { type App, createForm, field, saveError, section, startApp } from './helpers.js'
 
 let app: App
@@ -43,7 +44,7 @@ describe('form save', () => {
       field('number', 'budget', { max: 100000, min: 0 }),
       field('date', 'start', { maxDate: '2027-12-31', minDate: '2026-01-01' }),
       field('select', 'size', { options: [{ label: 'Small', value: 'small' }, { label: 'Large', value: 'large' }] }),
-      field('radio', 'colour', { options: [{ label: 'Red', value: 'red' }] }),
+      field('radio', 'colour', { options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }] }),
       field('checkbox', 'agree', { defaultValue: true }),
       field('checkboxGroup', 'extras', { options: [{ label: 'Gift wrap', value: 'wrap' }] }),
       field('fileUpload', 'files', { maxFiles: 2, mimeTypes: ['application/pdf', 'text/plain'] }),
@@ -188,5 +189,84 @@ describe('form save', () => {
       const message = await saveError(createForm(app, { sections: [section('s', [field('text', key)])] }))
       expect(message, key).toContain(`"${key}" is reserved`)
     }
+  })
+
+  test('radio and select need at least two typed choices', async () => {
+    const one = [{ label: 'Red', value: 'red' }]
+    const two = [...one, { label: 'Blue', value: 'blue' }]
+    for (const type of ['radio', 'select']) {
+      const message = await saveError(createForm(app, { sections: [section('s', [field(type, 'colour', { label: 'Colour', options: one })])] }))
+      expect(message, type).toContain(`Colour: a ${type} needs at least 2 choices.`)
+      const none = await saveError(createForm(app, { sections: [section('s', [field(type, 'colour', { options: [] })])] }))
+      expect(none, type).toContain(`colour: a ${type} needs at least 2 choices.`)
+      const form = await createForm(app, { sections: [section('s', [field(type, 'colour', { label: 'Colour', options: two })])] })
+      expect((await read(form.id)).sections[0].fields[0].options.map((o: Doc) => o.value), type).toEqual(['red', 'blue'])
+    }
+  })
+
+  test('radio and select refuse a single picked item', async () => {
+    const topic = (label: string) =>
+      app.payload.create({
+        collection: 'topics' as never,
+        data: { slug: `${label.toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`, _status: 'published', label } as never,
+        overrideAccess: true,
+      }) as Promise<{ id: number }>
+    const first = await topic('Cameras')
+    const pick = (...items: { id: number }[]) => items.map((t) => ({ relationTo: 'topics', value: t.id }))
+    // Only one published item in the collection: an empty pick still saves.
+    expect((await app.payload.count({ collection: 'topics' as never, overrideAccess: true, where: { _status: { equals: 'published' } } })).totalDocs).toBe(1)
+    for (const type of ['radio', 'select']) {
+      const empty = await createForm(app, { sections: [section('s', [field(type, 'need', { optionsFrom: 'topics', sourceItems: [] })])] })
+      expect((await read(empty.id)).sections[0].fields[0].sourceItems, type).toEqual([])
+      const message = await saveError(
+        createForm(app, { sections: [section('s', [field(type, 'need', { label: 'Topic', optionsFrom: 'topics', sourceItems: pick(first) })])] }),
+      )
+      expect(message, type).toContain(`Topic: a ${type} needs at least 2 choices.`)
+    }
+    const second = await topic('Tripods')
+    for (const type of ['radio', 'select']) {
+      const form = await createForm(app, { sections: [section('s', [field(type, 'need', { optionsFrom: 'topics', sourceItems: pick(first, second) })])] })
+      expect((await read(form.id)).sections[0].fields[0].sourceItems, type).toHaveLength(2)
+    }
+  })
+
+  test('a checkbox group may have one option', async () => {
+    const form = await createForm(app, {
+      sections: [section('s', [field('checkboxGroup', 'extras', { options: [{ label: 'Gift wrap', value: 'wrap' }] })])],
+    })
+    expect((await read(form.id)).sections[0].fields[0].options.map((o: Doc) => o.value)).toEqual(['wrap'])
+  })
+
+  test('new forms default to step by step', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('text', 'name')])] })
+    expect((await read(form.id)).presentationMode).toBe('steps')
+    let options: unknown
+    const visit = (fields: Doc[]) => {
+      for (const f of fields) {
+        if (f.name === 'presentationMode') {
+          options = f.options
+        }
+        for (const tab of f.tabs || []) {
+          visit(tab.fields)
+        }
+        if (Array.isArray(f.fields)) {
+          visit(f.fields)
+        }
+      }
+    }
+    visit(app.payload.collections['custom-forms' as never].config.fields as never)
+    expect(options).toEqual([
+      { label: 'Step by step', value: 'steps' },
+      { label: 'Single page', value: 'singlePage' },
+    ])
+  })
+
+  test('saved single-page forms keep their mode', async () => {
+    const form = await createForm(app, { presentationMode: 'singlePage', sections: [section('s', [field('text', 'name')])] })
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { title: 'Renamed' } as never, overrideAccess: true })
+    const doc = await read(form.id)
+    expect(doc.title).toBe('Renamed')
+    expect(doc.presentationMode).toBe('singlePage')
+    expect((await getPublicForm(app.payload, form.slug))!.presentationMode).toBe('singlePage')
   })
 })

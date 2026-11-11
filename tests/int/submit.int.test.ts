@@ -51,6 +51,12 @@ describe('public read', () => {
       data: { slug: 'cameras', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Cameras', opener: 'Hi!' } as never,
       overrideAccess: true,
     })
+    // 0.4.0: a radio needs two picked items (or none).
+    const second = await app.payload.create({
+      collection: 'topics' as never,
+      data: { slug: 'tripods', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Tripods', opener: 'Hello!' } as never,
+      overrideAccess: true,
+    })
     const form = await createForm(app, {
       delivery: {
         emails: [{ kind: 'team', label: 'Team', to: 'team@example.com' }],
@@ -59,7 +65,7 @@ describe('public read', () => {
         ],
         whatsapp: { enabled: true, number: '+1 555 000 1234' },
       },
-      sections: [section('s', [field('radio', 'need', { optionsFrom: 'topics', sourceItems: [{ relationTo: 'topics', value: topic.id }] })])],
+      sections: [section('s', [field('radio', 'need', { optionsFrom: 'topics', sourceItems: [{ relationTo: 'topics', value: topic.id }, { relationTo: 'topics', value: second.id }] })])],
       wording: { back: '' },
     })
     const res = await app.fetch(`/custom-forms/public/${form.slug}`)
@@ -67,6 +73,7 @@ describe('public read', () => {
     const body = await res.json()
     expect(body.sections[0].fields[0].options).toEqual([
       { attributes: { closer: 'Bye.', fieldSet: 'item', opener: 'Hi!' }, label: 'Cameras', value: 'cameras' },
+      { attributes: { closer: 'Bye.', fieldSet: 'item', opener: 'Hello!' }, label: 'Tripods', value: 'tripods' },
     ])
     expect(body.wording.back).toBe(DEFAULT_WORDS.back)
     expect(body.wording.send).toBe('Send now')

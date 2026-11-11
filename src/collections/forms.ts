@@ -8,6 +8,7 @@ import { adminFieldAccess, loggedIn } from '../access.js'
 import { validateFormBeforeSave } from '../hooks/validateForm.js'
 import { DEFAULT_WHATSAPP_ROW_TEMPLATE, DEFAULT_WHATSAPP_TEMPLATE } from '../shared/whatsapp.js'
 import { WORD_KEYS } from '../shared/words.js'
+import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
 import { nextStepRulesField, ruleGroupField } from './ruleFields.js'
 
 const WORD_HELP: Record<string, string> = {
@@ -105,7 +106,7 @@ function deliveryField(options: ResolvedOptions): Field {
                   { label: 'Visitor copy', value: 'visitor' },
                 ],
               },
-              { name: 'enabled', type: 'checkbox', admin: { width: '20%' }, defaultValue: true },
+              { name: 'enabled', type: 'checkbox', admin: { style: LEVEL_CHECKBOX_STYLE, width: '20%' }, defaultValue: true },
             ],
           },
           {
@@ -173,7 +174,7 @@ function deliveryField(options: ResolvedOptions): Field {
                 defaultValue: 'POST',
                 options: ['POST', 'PUT', 'PATCH'],
               },
-              { name: 'enabled', type: 'checkbox', admin: { width: '20%' }, defaultValue: true },
+              { name: 'enabled', type: 'checkbox', admin: { style: LEVEL_CHECKBOX_STYLE, width: '20%' }, defaultValue: true },
             ],
           },
           { name: 'url', type: 'text', admin: { description: 'https only.' }, required: true },
@@ -271,10 +272,10 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
                     type: 'select',
                     admin: { width: '50%' },
                     dbName: 'pm',
-                    defaultValue: 'singlePage',
+                    defaultValue: 'steps',
                     options: [
-                      { label: 'Single page', value: 'singlePage' },
                       { label: 'Step by step', value: 'steps' },
+                      { label: 'Single page', value: 'singlePage' },
                     ],
                     required: true,
                   },

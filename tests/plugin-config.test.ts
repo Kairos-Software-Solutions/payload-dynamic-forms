@@ -2,8 +2,10 @@ import type { Block, CollectionConfig, Config, Field } from 'payload'
 
 import { describe, expect, test, vi } from 'vitest'
 
+import { LEVEL_CHECKBOX_STYLE } from '../src/collections/adminStyle.js'
 import { OPERATORS } from '../src/exports/shared.js'
 import { formBlock, formsPlugin } from '../src/index.js'
+import fieldPaths030 from './fixtures/field-paths-0.3.0.json' with { type: 'json' }
 
 function baseConfig(): Config {
   return {
@@ -49,6 +51,69 @@ function sectionBlocks(config: Config, slug = 'custom-forms'): Block[] {
     }
   })
   return blocks
+}
+
+/** A block's fields with rows and collapsibles opened (groups and arrays stay whole). */
+function openFields(fields: Field[]): Field[] {
+  return fields.flatMap((field) => (field.type === 'row' || field.type === 'collapsible' ? openFields(field.fields) : [field]))
+}
+
+/** Names of the stored (non-ui) fields at a block's top level, rows and collapsibles opened. */
+function dataNames(fields: Field[]): string[] {
+  return openFields(fields)
+    .filter((field) => field.type !== 'ui' && 'name' in field)
+    .map((field) => (field as { name: string }).name)
+}
+
+/** Every data path (groups and arrays add a segment; rows, collapsibles and ui fields don't). */
+function dataPaths(fields: Field[], prefix = ''): string[] {
+  const out: string[] = []
+  for (const field of openFields(fields)) {
+    if (field.type === 'ui' || !('name' in field)) {
+      continue
+    }
+    const path = prefix ? `${prefix}.${field.name}` : field.name
+    out.push(path)
+    if ('fields' in field && Array.isArray(field.fields)) {
+      out.push(...dataPaths(field.fields, path))
+    }
+  }
+  return out
+}
+
+/** The first field with this name at a block's top level (rows and collapsibles opened). */
+function named<T = Field>(fields: Field[], name: string): T {
+  const found = openFields(fields).find((field) => 'name' in field && field.name === name)
+  if (!found) {
+    throw new Error(`no field ${name}`)
+  }
+  return found as T
+}
+
+const INPUT_TYPES = ['text', 'email', 'textarea', 'number', 'date', 'select', 'radio', 'checkbox', 'checkboxGroup', 'fileUpload']
+
+function allBlocks(): Block[] {
+  return sectionBlocks(formsPlugin({ fields: { fileUpload: true } })(baseConfig()))
+}
+
+function inputBlocks(): Block[] {
+  const blocks = allBlocks().filter((b) => INPUT_TYPES.includes(b.slug))
+  expect(blocks.map((b) => b.slug).sort()).toEqual([...INPUT_TYPES].sort())
+  return blocks
+}
+
+/** The rule rows' fields of a rule group or next-step rule array, by its path in the forms collection. */
+function fieldsAt(config: Config, wanted: string): Field[] {
+  let found: Field[] | undefined
+  walk(collection(config, 'custom-forms').fields, (field, path) => {
+    if (path === wanted && 'name' in field && 'fields' in field && Array.isArray(field.fields)) {
+      found = field.fields
+    }
+  })
+  if (!found) {
+    throw new Error(`nothing at ${wanted}`)
+  }
+  return found
 }
 
 describe('plugin config', () => {
@@ -271,5 +336,129 @@ describe('plugin config', () => {
     // Not an upload collection (or missing): the config build fails.
     expect(() => formsPlugin({ attachments: { collection: 'posts' } })(baseConfig())).toThrow(/upload collection/)
     expect(() => formsPlugin({ attachments: { collection: 'nope' } })(baseConfig())).toThrow(/upload collection/)
+  })
+
+  test('rules come last in every built-in input block', () => {
+    for (const block of inputBlocks()) {
+      const names = dataNames(block.fields)
+      expect(names.at(-1), block.slug).toBe('visibilityRules')
+      expect(names.slice(0, 3), block.slug).toEqual(['fieldKey', 'width', 'required'])
+      expect(names.indexOf('defaultValue'), block.slug).toBeLessThan(names.indexOf('prefillParam'))
+      if (block.slug === 'radio' || block.slug === 'select') {
+        for (const later of ['defaultValue', 'prefillParam', 'visibilityRules']) {
+          expect(names.indexOf('options'), `${block.slug} options before ${later}`).toBeLessThan(names.indexOf(later))
+        }
+      }
+      // The type's own fields sit between the words and the default row.
+      const own = names.filter((n) => !['defaultValue', 'fieldKey', 'prefillFromKey', 'prefillParam', 'required', 'visibilityRules', 'width', 'words'].includes(n))
+      for (const name of own) {
+        expect(names.indexOf(name), `${block.slug}.${name}`).toBeGreaterThan(names.indexOf('words'))
+        expect(names.indexOf(name), `${block.slug}.${name}`).toBeLessThan(names.indexOf('defaultValue'))
+      }
+    }
+    // Spot check of a type with own fields: text's limits come before the default row.
+    const text = inputBlocks().find((b) => b.slug === 'text')!
+    expect(dataNames(text.fields)).toEqual(
+      ['fieldKey', 'width', 'required', 'words', 'minLength', 'maxLength', 'defaultValue', 'prefillFromKey', 'prefillParam', 'visibilityRules'].filter(
+        (n) => n !== 'prefillFromKey' || dataNames(text.fields).includes('prefillFromKey'),
+      ),
+    )
+  })
+
+  test('app field types put their own fields before the rules', () => {
+    const config = formsPlugin({
+      fields: { rating: { block: { slug: 'rating', fields: [{ name: 'rating', type: 'number', max: 5, min: 1 }] } } },
+    })(baseConfig())
+    const block = sectionBlocks(config).find((b) => b.slug === 'rating')!
+    expect(block).toBeDefined()
+    // Top level: key row, words, then the type's own field, then the default/prefill row, then the rules.
+    expect(block.fields.map((f) => ('name' in f ? f.name : f.type))).toEqual(['row', 'collapsible', 'rating', 'row', 'visibilityRules'])
+    const names = dataNames(block.fields)
+    expect(names.slice(0, 5)).toEqual(['fieldKey', 'width', 'required', 'words', 'rating'])
+    expect(names.indexOf('rating')).toBeLessThan(names.indexOf('defaultValue'))
+    expect(names.indexOf('rating')).toBeLessThan(names.indexOf('prefillParam'))
+    expect(names.at(-1)).toBe('visibilityRules')
+  })
+
+  test('field names are unchanged from 0.3.0 apart from prefillFromKey', () => {
+    const before = fieldPaths030 as Record<string, string[]>
+    const now: Record<string, string[]> = {}
+    for (const block of allBlocks()) {
+      now[block.slug] = dataPaths(block.fields).sort()
+    }
+    expect(Object.keys(now).sort()).toEqual(Object.keys(before).sort())
+    for (const [slug, paths] of Object.entries(before)) {
+      const missing = paths.filter((p) => !now[slug].includes(p))
+      const added = now[slug].filter((p) => !paths.includes(p))
+      expect(missing, `${slug} lost`).toEqual([])
+      expect(added, `${slug} added`).toEqual(INPUT_TYPES.includes(slug) ? ['prefillFromKey'] : [])
+    }
+  })
+
+  test('rule arrays are labelled Rules and still named rows', () => {
+    const config = formsPlugin({})(baseConfig())
+    const groups = [
+      ...INPUT_TYPES.filter((t) => t !== 'fileUpload').map((t) => fieldsAt(config, `sections.fields.${t}.visibilityRules`)),
+      fieldsAt(config, 'sections.visibilityRules'),
+      fieldsAt(config, 'sections.nextStepRules'),
+    ]
+    for (const fields of groups) {
+      const rows = named<{ label?: unknown; labels?: unknown; name: string; type: string }>(fields, 'rows')
+      expect(rows.type).toBe('array')
+      expect(rows.labels).toEqual({ plural: 'Rules', singular: 'Rule' })
+      expect(rows.label).toBe('Rules')
+    }
+  })
+
+  test('rule fields are labelled Field and Next section', () => {
+    const config = formsPlugin({})(baseConfig())
+    const ruleRows = [
+      fieldsAt(config, 'sections.fields.text.visibilityRules.rows'),
+      fieldsAt(config, 'sections.visibilityRules.rows'),
+      fieldsAt(config, 'sections.nextStepRules.rows'),
+    ]
+    for (const fields of ruleRows) {
+      const key = named<{ label?: unknown; type: string }>(fields, 'fieldKey')
+      expect(key.type).toBe('text')
+      expect(key.label).toBe('Field')
+    }
+    const target = named<{ label?: unknown; type: string }>(fieldsAt(config, 'sections.nextStepRules'), 'targetSectionKey')
+    expect(target.type).toBe('text')
+    expect(target.label).toBe('Next section')
+  })
+
+  test('row checkboxes carry the level style', () => {
+    const config = formsPlugin({})(baseConfig())
+    const checks: { admin?: { style?: unknown; width?: unknown }; defaultValue?: unknown; name: string; type: string }[] = []
+    for (const block of inputBlocks()) {
+      const required = named<(typeof checks)[number]>(block.fields, 'required')
+      checks.push(required)
+      expect(required.type, block.slug).toBe('checkbox')
+      expect(required.defaultValue, block.slug).toBe(false)
+      expect(required.admin?.width, block.slug).toBe('25%')
+    }
+    for (const path of ['delivery.emails', 'delivery.webhooks']) {
+      const enabled = named<(typeof checks)[number]>(fieldsAt(config, path), 'enabled')
+      expect(enabled.type, path).toBe('checkbox')
+      expect(enabled.defaultValue, path).toBe(true)
+      expect(enabled.admin?.width, path).toBe('20%')
+      checks.push(enabled)
+    }
+    expect(checks.length).toBe(INPUT_TYPES.length + 2)
+    for (const check of checks) {
+      expect(check.admin?.style, check.name).toBe(LEVEL_CHECKBOX_STYLE)
+    }
+    expect(LEVEL_CHECKBOX_STYLE).toEqual({ paddingTop: 'calc(var(--base) * 1.6)' })
+  })
+
+  test('radio and select options have minRows 2', () => {
+    for (const block of inputBlocks()) {
+      if (!['checkboxGroup', 'radio', 'select'].includes(block.slug)) {
+        continue
+      }
+      const options = named<{ minRows?: number; type: string }>(block.fields, 'options')
+      expect(options.type).toBe('array')
+      expect(options.minRows, block.slug).toBe(block.slug === 'checkboxGroup' ? undefined : 2)
+    }
   })
 })

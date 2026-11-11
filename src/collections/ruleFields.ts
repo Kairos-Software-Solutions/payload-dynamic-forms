@@ -15,6 +15,7 @@ export function ruleRowFields(): Field[] {
             description: 'A field key, or key.attribute for an attribute of the chosen option.',
             width: '40%',
           },
+          label: 'Field',
           required: true,
         },
         {
@@ -37,6 +38,18 @@ export function ruleRowFields(): Field[] {
   ]
 }
 
+/** The list of rules: labelled Rules, still named `rows` (no data moves). */
+function ruleRowsField(): Field {
+  return {
+    name: 'rows',
+    type: 'array',
+    admin: { initCollapsed: true },
+    fields: ruleRowFields(),
+    label: 'Rules',
+    labels: { plural: 'Rules', singular: 'Rule' },
+  }
+}
+
 function matchField(): Field {
   return {
     name: 'match',
@@ -55,12 +68,7 @@ export function ruleGroupField(name = 'visibilityRules', label = 'Show when'): F
     admin: { description: 'Leave empty to always show.' },
     fields: [
       matchField(),
-      {
-        name: 'rows',
-        type: 'array',
-        admin: { initCollapsed: true },
-        fields: ruleRowFields(),
-      },
+      ruleRowsField(),
     ],
     label,
   }
@@ -80,15 +88,11 @@ export function nextStepRulesField(): Field {
       {
         name: 'targetSectionKey',
         type: 'text',
+        label: 'Next section',
         required: true,
       },
       matchField(),
-      {
-        name: 'rows',
-        type: 'array',
-        admin: { initCollapsed: true },
-        fields: ruleRowFields(),
-      },
+      ruleRowsField(),
     ],
   }
 }
