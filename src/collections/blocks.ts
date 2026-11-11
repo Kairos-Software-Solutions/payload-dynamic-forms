@@ -89,17 +89,30 @@ export function headFields(): Field[] {
   ]
 }
 
-/** The default answer and the link parameter that prefills it. */
-export function prefillRow(defaultValue: Field = TEXT_DEFAULT): Field[] {
+const LOCKED = () => true
+
+/**
+ * The default answer and the link parameter that prefills it. `prefillFromKey` is the hidden lock
+ * (like Payload's `generateSlug`): true, the parameter follows the key on save. Its default is a
+ * function, so the database gets no column default and rows saved before 0.4.0 stay NULL
+ * (unlocked). `lockDefault` is `() => false` for the single checkbox block (no pre-ticked consent).
+ */
+export function prefillRow(defaultValue: Field = TEXT_DEFAULT, lockDefault: () => boolean = LOCKED): Field[] {
   return [
     {
       type: 'row',
       fields: [
         { ...defaultValue, admin: { ...(defaultValue.admin as object), width: '50%' } } as Field,
         {
+          name: 'prefillFromKey',
+          type: 'checkbox',
+          admin: { hidden: true },
+          defaultValue: lockDefault,
+        },
+        {
           name: 'prefillParam',
           type: 'text',
-          admin: { description: 'Link parameter that prefills this answer, e.g. need for ?need=…', width: '50%' },
+          admin: { description: 'Link parameter that prefills this answer. Locked: the key.', width: '50%' },
           label: 'Prefill from link parameter',
         },
       ],
@@ -200,13 +213,14 @@ export type BlockContext = {
 /** The built-in field blocks, in their admin order. */
 export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
   // What the question is, then the type's own fields, then the default and prefill row, rules last.
-  const input = (slug: string, singular: string, typeFields: Field[], defaultValue?: Field): Block => ({
+  const input = (slug: string, singular: string, typeFields: Field[], defaultValue?: Field, lockDefault?: () => boolean): Block => ({
     slug,
-    fields: [...headFields(), ...typeFields, ...prefillRow(defaultValue), ruleGroupField()],
+    fields: [...headFields(), ...typeFields, ...prefillRow(defaultValue, lockDefault), ruleGroupField()],
     labels: { plural: `${singular} fields`, singular },
   })
   return {
-    checkbox: input('checkbox', 'Checkbox', [], { name: 'defaultValue', type: 'checkbox', defaultValue: false }),
+    // A single checkbox starts unlocked with no parameter: a link can't pre-tick a consent box.
+    checkbox: input('checkbox', 'Checkbox', [], { name: 'defaultValue', type: 'checkbox', defaultValue: false }, () => false),
     checkboxGroup: input('checkboxGroup', 'Checkbox group', choiceFields(ctx.sources), {
       name: 'defaultValue',
       type: 'text',

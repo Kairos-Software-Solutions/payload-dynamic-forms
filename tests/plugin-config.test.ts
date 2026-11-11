@@ -358,11 +358,18 @@ describe('plugin config', () => {
     }
     // Spot check of a type with own fields: text's limits come before the default row.
     const text = inputBlocks().find((b) => b.slug === 'text')!
-    expect(dataNames(text.fields)).toEqual(
-      ['fieldKey', 'width', 'required', 'words', 'minLength', 'maxLength', 'defaultValue', 'prefillFromKey', 'prefillParam', 'visibilityRules'].filter(
-        (n) => n !== 'prefillFromKey' || dataNames(text.fields).includes('prefillFromKey'),
-      ),
-    )
+    expect(dataNames(text.fields)).toEqual([
+      'fieldKey',
+      'width',
+      'required',
+      'words',
+      'minLength',
+      'maxLength',
+      'defaultValue',
+      'prefillFromKey',
+      'prefillParam',
+      'visibilityRules',
+    ])
   })
 
   test('app field types put their own fields before the rules', () => {
@@ -459,6 +466,24 @@ describe('plugin config', () => {
       const options = named<{ minRows?: number; type: string }>(block.fields, 'options')
       expect(options.type).toBe('array')
       expect(options.minRows, block.slug).toBe(block.slug === 'checkboxGroup' ? undefined : 2)
+    }
+  })
+
+  test('prefillFromKey default is a function', () => {
+    const config = formsPlugin({
+      fields: { fileUpload: true, rating: { block: { slug: 'rating', fields: [{ name: 'rating', type: 'number' }] } } },
+    })(baseConfig())
+    const blocks = sectionBlocks(config).filter((b) => [...INPUT_TYPES, 'rating'].includes(b.slug))
+    expect(blocks.length).toBe(INPUT_TYPES.length + 1)
+    for (const block of blocks) {
+      const lock = named<{ admin?: { hidden?: boolean }; defaultValue?: unknown; type: string }>(block.fields, 'prefillFromKey')
+      expect(lock.type, block.slug).toBe('checkbox')
+      expect(lock.admin?.hidden, block.slug).toBe(true)
+      expect(typeof lock.defaultValue, block.slug).toBe('function')
+      expect((lock.defaultValue as (args: unknown) => unknown)({}), block.slug).toBe(block.slug !== 'checkbox')
+      // Next to the parameter it locks.
+      const names = dataNames(block.fields)
+      expect(names.indexOf('prefillFromKey') + 1, block.slug).toBe(names.indexOf('prefillParam'))
     }
   })
 })

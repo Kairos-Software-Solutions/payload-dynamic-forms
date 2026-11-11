@@ -123,6 +123,15 @@ export function validateFormBeforeSave(options: ResolvedOptions): CollectionBefo
         const raw = typeof field.fieldKey === 'string' ? field.fieldKey.trim().toLowerCase() : ''
         const key = normalizeKey(field.fieldKey)
         field.fieldKey = key
+        // Prefill lock: locked follows the key; unlocked (false, or null from 0.3.0) keeps the
+        // editor's parameter, trimmed, and an empty one stays empty. Uploads are never prefilled.
+        if (field.blockType !== 'fileUpload') {
+          if (field.prefillFromKey === true) {
+            field.prefillParam = key
+          } else if (typeof field.prefillParam === 'string') {
+            field.prefillParam = field.prefillParam.trim()
+          }
+        }
         const path = `sections.${s}.fields.${f}.fieldKey`
         if (reserved.includes(raw) || reserved.includes(key)) {
           issues.push({ message: `The key "${raw || key}" is reserved for the spam checks. Pick another key.`, path })

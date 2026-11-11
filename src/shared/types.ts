@@ -89,6 +89,8 @@ export type InputBlock = {
   minLength?: null | number
   options?: ChoiceOption[] | null
   optionsFrom?: null | string
+  /** Locked (true): `prefillParam` follows the key on save. False or null (saved before 0.4.0): unlocked. */
+  prefillFromKey?: boolean | null
   /** Name of a link (search) parameter that prefills this input. */
   prefillParam?: null | string
   required?: boolean | null

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
-import { DEFAULT_WORDS, WORD_KEYS } from '../../src/exports/shared.js'
+import { sql } from '@payloadcms/db-sqlite'
+
+import { DEFAULT_WORDS, type FormLike, initialAnswers, WORD_KEYS } from '../../src/exports/shared.js'
 import { getPublicForm } from '../../src/index.js'
 import { type App, createForm, field, saveError, section, startApp } from './helpers.js'
 
@@ -268,5 +270,130 @@ describe('form save', () => {
     expect(doc.title).toBe('Renamed')
     expect(doc.presentationMode).toBe('singlePage')
     expect((await getPublicForm(app.payload, form.slug))!.presentationMode).toBe('singlePage')
+  })
+
+  /** Saves the form's sections again through the Local API, every section and question row id kept. */
+  async function resave(id: number | string, edit: (sections: Doc[]) => void = () => {}): Promise<Doc> {
+    const doc = await read(id)
+    edit(doc.sections)
+    for (const s of doc.sections) {
+      expect(s.id).toBeTruthy()
+      for (const f of s.fields) {
+        expect(f.id).toBeTruthy()
+      }
+    }
+    await app.payload.update({ id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
+    return read(id)
+  }
+
+  /**
+   * Writes a question row as a 0.3.0 row reads after the migration: no lock (NULL), in the block
+   * table and in its versions table (Payload's update starts from the latest version; the
+   * migration adds the NULL column to both).
+   */
+  async function write030Row(blockType: string, rowId: string, prefillParam: null | string): Promise<void> {
+    const db = app.payload.db as unknown as { drizzle: { run: (query: unknown) => Promise<unknown> } }
+    const main = sql.identifier(`custom_forms_blocks_${blockType}`)
+    const versions = sql.identifier(`_custom_forms_v_blocks_${blockType}`)
+    await db.drizzle.run(sql`UPDATE ${main} SET prefill_from_key = NULL, prefill_param = ${prefillParam} WHERE id = ${rowId}`)
+    await db.drizzle.run(sql`UPDATE ${versions} SET prefill_from_key = NULL, prefill_param = ${prefillParam} WHERE _uuid = ${rowId}`)
+  }
+
+  test('new questions are locked and prefill by their key', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('text', ' Full Name ')])] })
+    const question = (await read(form.id)).sections[0].fields[0]
+    expect(question.fieldKey).toBe('full-name')
+    expect(question.prefillFromKey).toBe(true)
+    expect(question.prefillParam).toBe('full-name')
+    const doc = await read(form.id)
+    expect(initialAnswers(doc as FormLike, '?full-name=Ana')['full-name']).toBe('Ana')
+  })
+
+  test('new checkbox questions start unlocked', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('checkbox', 'consent')])] })
+    const doc = await read(form.id)
+    expect(doc.sections[0].fields[0].prefillFromKey).toBe(false)
+    expect(doc.sections[0].fields[0].prefillParam ?? '').toBe('')
+    expect(initialAnswers(doc as FormLike, '?consent=yes').consent).toBe(false)
+    const locked = await resave(form.id, (sections) => {
+      sections[0].fields[0].prefillFromKey = true
+    })
+    expect(locked.sections[0].fields[0].prefillFromKey).toBe(true)
+    expect(locked.sections[0].fields[0].prefillParam).toBe('consent')
+  })
+
+  test('a locked prefill parameter follows the key', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('text', 'need')])] })
+    expect((await read(form.id)).sections[0].fields[0].prefillParam).toBe('need')
+    const after = await resave(form.id, (sections) => {
+      sections[0].fields[0].fieldKey = 'Topic'
+    })
+    expect(after.sections[0].fields[0].fieldKey).toBe('topic')
+    expect(after.sections[0].fields[0].prefillFromKey).toBe(true)
+    expect(after.sections[0].fields[0].prefillParam).toBe('topic')
+  })
+
+  test('an unlocked prefill parameter is kept', async () => {
+    const form = await createForm(app, {
+      sections: [
+        section('s', [
+          field('text', 'need', { prefillFromKey: false, prefillParam: ' ref ' }),
+          field('text', 'other', { prefillFromKey: false }),
+        ]),
+      ],
+    })
+    const doc = await read(form.id)
+    expect(doc.sections[0].fields[0].prefillParam).toBe('ref')
+    expect(doc.sections[0].fields[1].prefillParam ?? '').toBe('')
+    const after = await resave(form.id, (sections) => {
+      sections[0].fields[0].fieldKey = 'topic'
+      sections[0].fields[1].fieldKey = 'another'
+    })
+    expect(after.sections[0].fields.map((f: Doc) => [f.fieldKey, f.prefillFromKey, f.prefillParam ?? ''])).toEqual([
+      ['topic', false, 'ref'],
+      ['another', false, ''],
+    ])
+  })
+
+  test('0.3.0 questions without a parameter stay unprefilled', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('text', 'name', { defaultValue: 'Someone' })])] })
+    const rowId = (await read(form.id)).sections[0].fields[0].id
+    await write030Row('text', rowId, null)
+    const before = await read(form.id)
+    expect(before.sections[0].fields[0].prefillFromKey).toBeNull()
+    expect(before.sections[0].fields[0].prefillParam ?? '').toBe('')
+    // Resend every section and question row id, without the lock or the parameter.
+    const after = await resave(form.id, (sections) => {
+      delete sections[0].fields[0].prefillFromKey
+      delete sections[0].fields[0].prefillParam
+      sections[0].title = 'Renamed'
+    })
+    expect(after.sections[0].title).toBe('Renamed')
+    expect(after.sections[0].fields[0].id).toBe(rowId)
+    expect(after.sections[0].fields[0].prefillFromKey).toBeNull()
+    expect(after.sections[0].fields[0].prefillParam ?? '').toBe('')
+    expect(initialAnswers(after as FormLike, '?name=x').name).toBe('Someone')
+  })
+
+  test('0.3.0 questions keep their parameter', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('text', 'topic')])] })
+    const rowId = (await read(form.id)).sections[0].fields[0].id
+    await write030Row('text', rowId, 'need')
+    // As the admin sends it: every row id, the null lock and the stored parameter.
+    const after = await resave(form.id, (sections) => {
+      expect(sections[0].fields[0].prefillFromKey).toBeNull()
+      sections[0].title = 'Renamed'
+    })
+    expect(after.sections[0].fields[0].fieldKey).toBe('topic')
+    expect(after.sections[0].fields[0].prefillFromKey).toBeNull()
+    expect(after.sections[0].fields[0].prefillParam).toBe('need')
+    // And without the two fields: the stored values still win.
+    const again = await resave(form.id, (sections) => {
+      delete sections[0].fields[0].prefillFromKey
+      delete sections[0].fields[0].prefillParam
+    })
+    expect(again.sections[0].fields[0].prefillFromKey).toBeNull()
+    expect(again.sections[0].fields[0].prefillParam).toBe('need')
+    expect(initialAnswers(again as FormLike, '?need=x').topic).toBe('x')
   })
 })
