@@ -21,7 +21,7 @@ function lockEntries(): Entry[] {
       const resolution = /^ {2}resolution: "(.+)"$/m.exec(block)?.[1] ?? ''
       const version = /^ {2}version: (.+)$/m.exec(block)?.[1] ?? ''
       const name = resolution.slice(0, resolution.indexOf('@', 1))
-      return { key, name, resolution, version }
+      return { name, key, resolution, version }
     })
 }
 
