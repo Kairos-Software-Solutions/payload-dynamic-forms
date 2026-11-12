@@ -17,7 +17,7 @@
 
 ## 5. README
 
-- [ ] 5.1 In `README.md`, make the one edit of design 9 and nothing else. Add "compatibility names the payload version the tests run on" inside the existing `describe('README', …)` of tests/readme.test.ts (the Compatibility section contains `^3.92.1` and `package.json`'s `payload` devDependency version). Covers "Compatibility names the dev Payload version"; the existing README scenarios stay green. Done when `yarn vitest run tests/readme.test.ts` passes.
+- [x] 5.1 In `README.md`, make the one edit of design 9 and nothing else. Add "compatibility names the payload version the tests run on" inside the existing `describe('README', …)` of tests/readme.test.ts (the Compatibility section contains `^3.92.1` and `package.json`'s `payload` devDependency version). Covers "Compatibility names the dev Payload version"; the existing README scenarios stay green. Done when `yarn vitest run tests/readme.test.ts` passes.
 
 ## 6. Final checks
 

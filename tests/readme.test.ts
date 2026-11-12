@@ -201,4 +201,17 @@ describe('README', () => {
     expect(row('metadata')).toContain('`metadata.timeZone` (default on)')
     expect(row('metadata')).toMatch(/still used for that request/)
   })
+
+  test('compatibility names the payload version the tests run on', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as {
+      devDependencies: Record<string, string>
+    }
+    const start = readme.indexOf('\n## Compatibility\n')
+    expect(start).toBeGreaterThan(-1)
+    const rest = readme.slice(start + 1)
+    const next = rest.indexOf('\n## ', 1)
+    const compatibility = next === -1 ? rest : rest.slice(0, next)
+    expect(compatibility).toContain('`^3.92.1`')
+    expect(compatibility).toContain(pkg.devDependencies.payload)
+  })
 })
