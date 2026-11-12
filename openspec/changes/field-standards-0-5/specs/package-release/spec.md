@@ -1,16 +1,16 @@
 ## ADDED Requirements
 
 ### Requirement: README notes for 0.5.0
-The README SHALL carry a 0.5.0 migration note (new columns, the default-language copy with `carryOverDefault`, hand-written SQLite/D1 migration, the Postgres edit, import map, rollback), the `timezone` option, date modes and storage, jumps vs show rules, and Send another with the Turnstile note.
+The README SHALL carry a 0.5.0 migration note (new columns, the default-language copy with `carryOverDefault` and its report file, the backfill, hand-written SQLite/D1 migration, the Postgres edit, import map, rollback through `down()` with `rollbackDefault`), the `timezone` and `metadata.timeZone` options, date modes and storage, jumps vs show rules, and Send another with the Turnstile note.
 
 #### Scenario: 0.5.0 migration note
 - **WHEN** the test reads the Migrations section's `**0.5.0.**` paragraph
-- **THEN** it names `default_value`, `_locales`, `mode`, `value_format`, `display_style`, `send_another`, `wording_send_another`, `metadata_time_zone`, `carryOverDefault`, `ADD COLUMN`, `snapshot JSON` and `payload generate:importmap`, says SQLite and D1 sites hand-write the migration because a generated one can rebuild tables and delete child rows, says Postgres runs the copy before the generated `DROP COLUMN`, says defaults that don't fit are reported, and gives the Rollback
+- **THEN** it names `default_value`, `_locales`, `mode`, `value_format`, `display_style`, `send_another`, `wording_send_another`, `metadata_time_zone`, `carryOverDefault`, `forms-0.5.0-carry-over.txt`, `rollbackDefault`, `ADD COLUMN`, `snapshot JSON` and `payload generate:importmap`, says SQLite and D1 sites hand-write the migration because a generated one can rebuild tables and delete child rows, says Postgres runs the copy before the generated `DROP COLUMN`, says defaults that don't fit are reported, says existing rows are backfilled (`dayOnly`, `send_another`, the Send another words per locale), and gives the Rollback: run `down()` before re-pinning 0.4.0, because a 0.5.0 save clears the old `_locales` default
 - **CHECK** tests/readme.test.ts › "readme has the 0.5.0 changelog and migration note"
 
 #### Scenario: Date modes, jumps and send another are explained
 - **WHEN** the test reads the README
-- **THEN** it has sections "Date and time questions" (naming Date, Date and time, Time, `dayOnly`, `dayAndTime`, `timeOnly`, `TIME_ZONE_FIELD`, `_tz`, `timezone` and that date-only answers are never converted to UTC), "Jumps and show rules" (saying a jump skips every section in between and to use a show rule for an optional section) and "Send another" (saying Turnstile tokens are single use and the renderer needs a fresh one), and the Options section documents `timezone` with its `UTC` default
+- **THEN** it has sections "Date and time questions" (naming Date, Date and time, Time, `dayOnly`, `dayAndTime`, `timeOnly`, `TIME_ZONE_FIELD`, `_tz`, `timezone` and that date-only answers are never converted to UTC), "Jumps and show rules" (saying a jump skips every section in between and to use a show rule for an optional section) and "Send another" (saying Turnstile tokens are single use and the renderer needs a fresh one), and the Options section documents `timezone` with its `UTC` default and `metadata.timeZone` (default on, the zone still used when off)
 - **CHECK** tests/readme.test.ts › "readme explains date modes, jumps and send another"
 
 ## MODIFIED Requirements

@@ -32,7 +32,7 @@ A Date and time answer SHALL be stored exactly as the browser sent it unless its
 The public form SHALL give every date question its `mode`, `valueFormat` and `displayStyle` (filled with `dayOnly`, `local` and `asStored` when stored empty), number defaults as numbers, `sendAnother`, and `wording.sendAnother`.
 
 #### Scenario: Date questions saved before 0.5.0 stay Date questions
-- **WHEN** a published form's date question has `mode`, `value_format` and `display_style` set to NULL straight in the database (as a 0.4.0 row reads after the migration), the public form is read and `2026-11-12` is submitted
+- **WHEN** a published form's date question has `mode`, `value_format` and `display_style` set to NULL straight in the database (as a 0.4.0 row reads if a site skipped the migration's backfill), the public form is read and `2026-11-12` is submitted
 - **THEN** the public question has `mode: 'dayOnly'`, `valueFormat: 'local'`, `displayStyle: 'asStored'`, the answer is accepted and stored as `2026-11-12`, and a later save through the Local API that resends the row ids keeps the three columns NULL
 - **CHECK** tests/int/submit.int.test.ts › "date questions saved before 0.5.0 stay Date questions"
 

@@ -24,8 +24,8 @@ A question's default SHALL use the question's own type: text and long text keep 
 - **CHECK** tests/admin/default-fields.test.tsx › "collection default lists the picked items"
 
 #### Scenario: Date values are pickers with Today
-- **WHEN** the date value component renders for a question in each mode, a date and time is picked, and "Today" (Date) or "Now" (Date and time, Time) is chosen
-- **THEN** the picker uses `pickerAppearance` `dayOnly`, `dayAndTime` or `timeOnly` (`dayOnly` when the mode is empty), stores `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `HH:MM` from the picked local date, and stores `today` for the relative choice; on a Time question's limits no "Now" is offered
+- **WHEN** the date value component renders for a question in each mode, a date and time is picked, and "Today" (Date) or "Now" (Date and time, Time) is chosen; and the conversion gets a Date-mode pick as the picker hands it over (12:00 UTC on 1 Dec 2026) with the runtime zone `Pacific/Auckland`
+- **THEN** the picker uses `pickerAppearance` `dayOnly`, `dayAndTime` or `timeOnly` (`dayOnly` when the mode is empty) with `displayFormat` `yyyy-MM-dd`, `yyyy-MM-dd HH:mm` or `HH:mm` and, with a time, `timeFormat` `HH:mm` and `timeIntervals` 15; it stores `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `HH:MM` from the pick, and `today` for the relative choice; on a Time question's limits no "Now" is offered; in Auckland the pick reads `2026-12-01`, and `2026-12-01` gives a picker value on 1 Dec local time
 - **CHECK** tests/admin/default-fields.test.tsx › "date value field writes the mode's format and today"; tests/admin-logic.test.ts › "date picker values convert to wall-time text both ways"
 
 #### Scenario: Number default uses a number input
@@ -37,7 +37,7 @@ A question's default SHALL use the question's own type: text and long text keep 
 Saving a form SHALL refuse a default or date limit that doesn't fit its question (type, mode, Min/Max, length limits, the question's options, or for collection choices the picked items, else the collection's items) and Earliest after Latest, with a message at that field's path. Empty defaults SHALL always be accepted.
 
 #### Scenario: Defaults that don't fit are refused
-- **WHEN** forms are saved, one at a time, with an email default `not-an-email`, a number default `20` with Max 10, a date default `12/01/2026`, a Time question's default `2026-12-01`, a date question with Earliest `2026-12-10` and Latest `2026-12-01`, a select default `maybe` with options `yes` and `no`, a checkbox-group default `a,z` with options `a` and `b`, and a text default of 12 characters with Max length 10
+- **WHEN** forms are saved, one at a time, with an email default `not-an-email`, a number default `20` with Max 10, a date default `12/01/2026`, a Time question's default `2026-12-01`, a date question with Earliest `2026-12-10` and Latest `2026-12-01`, a Time question with Earliest `today`, a select default `maybe` with options `yes` and `no`, a checkbox-group default `a,z` with options `a` and `b`, and a text default of 12 characters with Max length 10
 - **THEN** each save is refused with a message naming the question at that question's `defaultValue`, `minDate` or `maxDate` path, and nothing is stored
 - **CHECK** tests/int/form-save.int.test.ts › "defaults that don't fit their question are refused"
 
@@ -64,13 +64,13 @@ The date block SHALL have `mode` (Date `dayOnly`, Date and time `dayAndTime`, Ti
 - **THEN** every `defaultValue` is a function, while the other Form wording fields keep their static defaults
 - **CHECK** tests/plugin-config.test.ts › "new 0.5.0 fields have function defaults"
 
-### Requirement: Sections and questions start open
-The sections array and the questions blocks field SHALL use `initCollapsed: false`, so an opened row stays open after a new form's first save (the create view has no saved preferences). Rule rows, jumps, emails, webhooks and secret headers SHALL keep `initCollapsed: true`.
+### Requirement: Every list starts open
+Every array and blocks field the plugin adds SHALL use `initCollapsed: false` (Payload's default), so no plugin list falls back to closed after a new form's first save (the create view has no saved preferences); rows an editor closes stay readable through their labels.
 
-#### Scenario: Open and folded lists
-- **WHEN** the test reads the forms collection
-- **THEN** `sections` and `sections.fields` have `admin.initCollapsed` false, and both rule `rows` arrays, `nextStepRules`, `delivery.emails`, `delivery.webhooks` and webhook `headers` have it true
-- **CHECK** tests/plugin-config.test.ts › "sections and questions start open, settings lists start folded"
+#### Scenario: Every list starts open
+- **WHEN** the test reads the forms and submissions collections (attachments on) and walks every array and blocks field
+- **THEN** none has `admin.initCollapsed` true, and `sections`, `sections.fields`, both rule `rows` arrays, `nextStepRules`, `delivery.emails`, `delivery.webhooks`, webhook `headers`, typed `options`, `deliveryLog` and `snapshot` set it to false
+- **CHECK** tests/plugin-config.test.ts › "every plugin list starts open"
 
 ### Requirement: Closed rows are readable
 Every list row SHALL show its own words: sections `key · title`, questions `type · key · label` (heading and help text: `type · text`), rule rows the rule in words, options `label = value`, jumps `Jump to <section>`, email and webhook rows their label, each cut at 72 characters, else `Row N`. Array rows SHALL use the `RowLabel` component and every question block, built-in or app-defined, its own `QuestionLabel` block label, ported from the starter.

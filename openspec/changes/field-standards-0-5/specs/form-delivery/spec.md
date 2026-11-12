@@ -20,5 +20,5 @@ Emails, WhatsApp text and the snapshot SHALL show a date answer as stored unless
 
 #### Scenario: Date style shapes emails and the snapshot, not webhooks
 - **WHEN** a form with a Date question (`displayStyle: 'long'`), a team email, a visitor copy and a full webhook is submitted in `es` with `2026-11-12` and `_tz` `America/New_York`
-- **THEN** the snapshot row and the visitor copy show the long Spanish date, the team email the long English date, and the webhook's `answers` hold `2026-11-12` with `submission.timeZone` `America/New_York`; a submission without `_tz` sends a webhook body with no `timeZone` key
+- **THEN** the snapshot row, the WhatsApp link's text in the submit answer and the visitor copy show the long Spanish date, the team email the long English date, and the webhook's `answers` hold `2026-11-12` with `submission.timeZone` `America/New_York`; when that webhook first fails and is resent through the resend endpoint, the resent body again holds `submission.timeZone` `America/New_York`, read from `metadata.timeZone`; a submission without `_tz` sends a webhook body with no `timeZone` key
 - **CHECK** tests/int/delivery.int.test.ts › "date style shapes emails and the snapshot, not webhooks"

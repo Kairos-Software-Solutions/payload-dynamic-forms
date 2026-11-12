@@ -25,7 +25,7 @@ Date answers SHALL be checked in the question's mode: Date `YYYY-MM-DD`, Time `H
 
 #### Scenario: Today limits resolve in the visitor's time zone
 - **WHEN** a Date question with Earliest `today` is checked with `now` `2026-11-12T03:00:00Z` and `timeZone` `America/New_York`, for `2026-11-11` and `2026-11-10`; and with `timeZone` `UTC`
-- **THEN** in New York `2026-11-11` is accepted and `2026-11-10` is invalid; in UTC `2026-11-11` is invalid; and `resolveDateLimit(field, 'min', { now, timeZone })` gives `2026-11-11` and `2026-11-12`
+- **THEN** in New York `2026-11-11` is accepted and `2026-11-10` is invalid; in UTC `2026-11-11` is invalid; and `resolveDateLimit(field, 'min', { now, timeZone })` gives `2026-11-11` and `2026-11-12`; a Date and time question with Earliest and Latest `today`, at the same `now` in New York, accepts `2026-11-11T00:00` and `2026-11-11T23:59` and refuses `2026-11-10T23:59` and `2026-11-12T00:00`, and `resolveDateLimit` gives `2026-11-11T00:00` and `2026-11-11T23:59`
 - **CHECK** tests/answers.test.ts › "today limits resolve in the visitor's time zone"
 
 ### Requirement: Starting answers for typed defaults
