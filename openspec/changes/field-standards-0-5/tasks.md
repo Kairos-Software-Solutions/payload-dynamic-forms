@@ -37,7 +37,7 @@
 
 ## 9. Final checks
 
-- [ ] 9.1 Run once: `yarn lint` (no errors; warning count against 0.4.0's), `yarn typecheck`, `yarn test` (all pass, offline; covers "Suite runs offline"), `yarn build`, the pack check one-liner of "Pack lists only shipped files" (prints `ok`), `yarn check:packed`, `node scripts/check-packed.mjs <tmp>/payload-dynamic-forms-0.2.0.tgz` (exits 1 naming the `./src/` paths), `rm -rf dist && yarn typecheck && yarn vitest run tests/plugin-config.test.ts tests/int/boot.int.test.ts` then `yarn build` again, `CI=true yarn install --immutable`, `yarn spec:validate`. Done when each exits as stated; put each result in your summary.
+- [x] 9.1 Run once: `yarn lint` (no errors; warning count against 0.4.0's), `yarn typecheck`, `yarn test` (all pass, offline; covers "Suite runs offline"), `yarn build`, the pack check one-liner of "Pack lists only shipped files" (prints `ok`), `yarn check:packed`, `node scripts/check-packed.mjs <tmp>/payload-dynamic-forms-0.2.0.tgz` (exits 1 naming the `./src/` paths), `rm -rf dist && yarn typecheck && yarn vitest run tests/plugin-config.test.ts tests/int/boot.int.test.ts` then `yarn build` again, `CI=true yarn install --immutable`, `yarn spec:validate`. Done when each exits as stated; put each result in your summary.
 
 ## Workflow follow-up
 
