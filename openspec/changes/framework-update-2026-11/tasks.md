@@ -9,7 +9,7 @@
 
 ## 3. Vitest 5 and Payload 3.93
 
-- [ ] 3.1 Run `yarn vitest --version` and then the whole suite with `yarn test`. If a test fails only because of `clearMocks` (design 6), set `clearMocks: false` in `vitest.config.js` and say so. Any other failure (a jsdom test under `tests/admin/`, or one from Payload 3.93.0's block checks): block with the test name and error; don't change `src/` or a test's expectation. Covers "Vitest 5 with vite declared" and "Suite runs offline". Done when `yarn vitest --version` prints a line containing `5.1.0`, `node -p "require('./package.json').devDependencies.vite"` prints `8.3.8`, and `yarn test` exits 0. Report the test and file counts (the base has 214 `test(` calls in 32 files; this change adds 6 in 1 new file).
+- [x] 3.1 Run `yarn vitest --version` and then the whole suite with `yarn test`. If a test fails only because of `clearMocks` (design 6), set `clearMocks: false` in `vitest.config.js` and say so. Any other failure (a jsdom test under `tests/admin/`, or one from Payload 3.93.0's block checks): block with the test name and error; don't change `src/` or a test's expectation. Covers "Vitest 5 with vite declared" and "Suite runs offline". Done when `yarn vitest --version` prints a line containing `5.1.0`, `node -p "require('./package.json').devDependencies.vite"` prints `8.3.8`, and `yarn test` exits 0. Report the test and file counts (the base has 214 `test(` calls in 32 files; this change adds 6 in 1 new file).
 
 ## 4. Lint
 
