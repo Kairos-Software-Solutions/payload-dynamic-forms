@@ -10,7 +10,8 @@ import { checkRateLimit } from '../security/rateLimit.js'
 import { getRequestIP, isHoneypotFilled } from '../security/request.js'
 import { checkTurnstile } from '../security/turnstile.js'
 import { loadPublishedForm, pluginLocale } from '../server/forms.js'
-import { buildSnapshot, checkAnswers } from '../shared/answers.js'
+import { buildSnapshot, checkAnswers, toStoredAnswers } from '../shared/answers.js'
+import { type DateContext, isTimeZone, TIME_ZONE_FIELD } from '../shared/dates.js'
 import { getFieldLabel, getInputFields } from '../shared/rules.js'
 import { buildWhatsAppMessage, whatsappUrl } from '../shared/whatsapp.js'
 
@@ -75,6 +76,13 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
       }
       const { files, raw } = body
       const ip = getRequestIP(req.headers)
+      // The visitor's zone (`_tz`) when Intl accepts it, else the plugin's. It is used for this
+      // request either way, and recorded only when `metadata.timeZone` is on.
+      const sentZone = typeof raw[TIME_ZONE_FIELD] === 'string' ? raw[TIME_ZONE_FIELD].trim() : ''
+      const visitorZone = isTimeZone(sentZone) ? sentZone : undefined
+      const timeZone = visitorZone ?? options.timezone
+      const recordedTimeZone = options.metadata.timeZone ? visitorZone : undefined
+      const dates: DateContext = { locale: locale ?? null, timeZone }
 
       if (form.spamChecks) {
         if (isHoneypotFilled(raw, options.honeypotField)) {
@@ -111,12 +119,14 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
         fieldTypes: options.fieldTypes,
         files: fileLikes,
         limits: options.attachments || undefined,
+        timeZone,
         words,
       })
       if (!checked.ok) {
         return respond(400, { fieldErrors: checked.fieldErrors, message: words.errorPrefix, ok: false })
       }
-      const answers: Answers = checked.answers
+      // Date and time answers stored as UTC are converted before the snapshot, the store and the deliveries.
+      const answers: Answers = toStoredAnswers(form, checked.answers, timeZone)
 
       let waUrl: string | undefined
       if (delivery.whatsapp.enabled) {
@@ -129,7 +139,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
           fieldTypes: options.fieldTypes,
           rowTemplate: delivery.whatsapp.rowTemplate,
           template: delivery.whatsapp.messageTemplate,
-        })
+        }, dates)
         waUrl = whatsappUrl(number, message)
       }
 
@@ -137,7 +147,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
       const visibleUploads = checked.fileKeys.map((key) => inputs.get(key)!).filter(Boolean)
 
       let submissionId: number | string | undefined
-      let snapshot = buildSnapshot(form, answers, options.fieldTypes)
+      let snapshot = buildSnapshot(form, answers, options.fieldTypes, dates)
       const created: Array<{ fieldKey: string; filename: string; id: number | string }> = []
       const outputs = hasDeliveries(delivery)
 
@@ -166,7 +176,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               }
             }
           }
-          snapshot = buildSnapshot(form, answers, options.fieldTypes)
+          snapshot = buildSnapshot(form, answers, options.fieldTypes, dates)
           const submission = await payload.create({
             collection: options.slugs.submissions as never,
             data: {
@@ -177,6 +187,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               metadata: {
                 ip: options.metadata.ip ? ip || null : null,
                 locale: locale || null,
+                timeZone: recordedTimeZone || null,
                 userAgent: options.metadata.userAgent ? req.headers.get('user-agent') || null : null,
               },
               snapshot,
@@ -217,9 +228,11 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               locale,
               options,
               payload,
+              recordedTimeZone,
               req,
               snapshot,
               submissionId,
+              timeZone,
             })
             for (const entry of entries.filter((e) => e.result === 'failed')) {
               payload.logger.error(`payload-dynamic-forms: ${entry.kind} "${entry.label}" of "${form.slug}" failed: ${entry.error}`)

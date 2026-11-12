@@ -3,6 +3,7 @@ import type { Payload, PayloadRequest } from 'payload'
 import type { Answers, SnapshotRow, SubmissionStatus } from '../shared/types.js'
 
 import { type LogEntry, runDeliveries, statusFromLog } from '../delivery/run.js'
+import { isTimeZone } from '../shared/dates.js'
 import { getPluginOptions, loadFormById, pluginLocale } from './forms.js'
 
 export type SubmissionDoc = {
@@ -11,7 +12,7 @@ export type SubmissionDoc = {
   deliveryLog?: LogEntry[] | null
   form?: { id: number | string } | null | number | string
   id: number | string
-  metadata?: { locale?: null | string } | null
+  metadata?: { locale?: null | string; timeZone?: null | string } | null
   snapshot?: null | SnapshotRow[]
 }
 
@@ -31,6 +32,9 @@ export async function resendFailedDeliveries(
   })
   const formId = typeof submission.form === 'object' && submission.form ? submission.form.id : submission.form
   const locale = pluginLocale(payload, submission.metadata?.locale)
+  // The zone recorded at the submit, so a resent message or webhook shows the same clock.
+  const recorded = submission.metadata?.timeZone
+  const recordedTimeZone = isTimeZone(recorded) ? recorded : undefined
   const loaded = formId != null ? await loadFormById(payload, formId, { locale, req }) : null
   const last = new Map<string, LogEntry>()
   for (const entry of log) {
@@ -79,9 +83,11 @@ export async function resendFailedDeliveries(
           locale,
           options,
           payload,
+          recordedTimeZone,
           req,
           snapshot: submission.snapshot || [],
           submissionId: submission.id,
+          timeZone: recordedTimeZone ?? options.timezone,
         },
         rerun,
       )),

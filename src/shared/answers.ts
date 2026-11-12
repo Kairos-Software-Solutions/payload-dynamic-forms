@@ -10,6 +10,7 @@ import type {
   YesNoWords,
 } from './types.js'
 
+import { comparableDateValue, type DateContext, dateMode, formatAnswerDate, isValidDateValue, resolveDateLimit, toStoredDateAnswer } from './dates.js'
 import {
   getFieldLabel,
   getInputFields,
@@ -55,16 +56,6 @@ export function isValidEmail(value: unknown): boolean {
   return /^[^\s@,;<>()"'[\]\\]+@[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?)+$/i.test(
     value.trim(),
   )
-}
-
-const DATE = /^\d{4}-\d{2}-\d{2}$/
-
-function isValidDate(value: string): boolean {
-  if (!DATE.test(value)) {
-    return false
-  }
-  const time = Date.parse(`${value}T00:00:00Z`)
-  return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === value
 }
 
 function first(raw: unknown): unknown {
@@ -114,14 +105,17 @@ export function normalizeAnswer(
 }
 
 /**
- * The text of an answer in messages and snapshots: option labels, file names, and the form's
- * `yes` / `no` words for a checkbox (pass `fillWords(form.wording)` or the public form's wording).
+ * The text of an answer in messages and snapshots: option labels, file names, the form's
+ * `yes` / `no` words for a checkbox (pass `fillWords(form.wording)` or the public form's wording),
+ * and date answers as stored or in the question's display style (`dates`: the message's language
+ * and the submission's time zone, see `formatAnswerDate`).
  */
 export function answerToText(
   field: InputBlock,
   value: AnswerValue,
   words: YesNoWords,
   fieldTypes?: Record<string, FieldTypeChecks>,
+  dates?: DateContext,
 ): string {
   const custom = fieldTypes?.[field.blockType]?.toText
   if (custom) {
@@ -145,24 +139,31 @@ export function answerToText(
   if (Array.isArray(value)) {
     return value.join(', ')
   }
+  if (field.blockType === 'date' && typeof value === 'string') {
+    return formatAnswerDate(value, field, dates)
+  }
   return String(value)
 }
 
 type Problem = 'empty' | 'file' | 'invalid' | null
 
-function checkValue(field: InputBlock, value: AnswerValue): Problem {
+function checkValue(field: InputBlock, value: AnswerValue, options: CheckOptions): Problem {
   switch (field.blockType) {
     case 'checkboxGroup': {
       const listed = new Set(getOptions(field).map((o) => String(o.value)))
       return toStringList(value).every((v) => listed.has(v)) ? null : 'invalid'
     }
     case 'date': {
-      const text = String(value)
-      if (!isValidDate(text)) {
+      // Per mode (none: Date, as 0.4.0); limits in the same format, seconds ignored, `today`
+      // resolved at `now` in the visitor's (else the plugin's) time zone.
+      const mode = dateMode(field)
+      if (!isValidDateValue(value, mode)) {
         return 'invalid'
       }
-      const min = field.minDate?.slice(0, 10)
-      const max = field.maxDate?.slice(0, 10)
+      const text = comparableDateValue(value, mode)
+      const at = { now: options.now, timeZone: options.timeZone }
+      const min = resolveDateLimit(field, 'min', at)
+      const max = resolveDateLimit(field, 'max', at)
       if ((min && text < min) || (max && text > max)) {
         return 'invalid'
       }
@@ -226,6 +227,10 @@ export type CheckOptions = {
   /** Files per upload field key. */
   files?: Record<string, FileLike[]>
   limits?: FileLimits
+  /** The moment `today` date limits resolve at. Default: now. */
+  now?: Date
+  /** IANA zone `today` date limits resolve in (the visitor's, else the plugin's). Default: the runtime's. */
+  timeZone?: string
   /** Form words; default: the form's wording filled from the defaults. */
   words?: FormWords
 }
@@ -308,7 +313,7 @@ export function checkAnswers(form: FormLike, raw: Record<string, unknown>, optio
         continue
       }
     }
-    const problem = checkValue(field, value)
+    const problem = checkValue(field, value, options)
     if (problem) {
       fieldErrors[key] = errorWords(field, key, problem, words)
     }
@@ -316,11 +321,26 @@ export function checkAnswers(form: FormLike, raw: Record<string, unknown>, optio
   return { answers, fieldErrors, fileKeys, ok: Object.keys(fieldErrors).length === 0 }
 }
 
-/** Section title, label and value per answered, shown field, as worded now. */
+/**
+ * The value to store for each answer: Date and time answers of questions stored as `utc` become
+ * their UTC instant in `timeZone`; every other answer stays as sent (a new object).
+ */
+export function toStoredAnswers(form: FormLike, answers: Answers, timeZone: string): Answers {
+  const out: Answers = { ...answers }
+  for (const { field, key } of getInputFields(form)) {
+    if (field.blockType === 'date' && key in out) {
+      out[key] = toStoredDateAnswer(field, out[key], timeZone)
+    }
+  }
+  return out
+}
+
+/** Section title, label and value per answered, shown field, as worded now (`dates`: see `answerToText`). */
 export function buildSnapshot(
   form: FormLike,
   answers: Answers,
   fieldTypes?: Record<string, FieldTypeChecks>,
+  dates?: DateContext,
 ): SnapshotRow[] {
   const words = fillWords(form.wording)
   const rows: SnapshotRow[] = []
@@ -333,7 +353,7 @@ export function buildSnapshot(
       label: getFieldLabel(field, key),
       sectionKey: getSectionKey(section),
       sectionTitle: section.title?.trim() || getSectionKey(section),
-      value: answerToText(field, answers[key], words, fieldTypes),
+      value: answerToText(field, answers[key], words, fieldTypes, dates),
     })
   }
   return rows

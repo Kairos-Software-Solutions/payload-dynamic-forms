@@ -25,6 +25,7 @@ let editorToken: string
 const scheduled: Array<() => Promise<void>> = []
 const hookCalls: string[] = []
 const hookIds: Array<null | string> = []
+const hookBodies: Array<{ answers: Record<string, unknown>; submission: Record<string, unknown> } & Record<string, unknown>> = []
 let hookStatus = 200
 
 beforeAll(async () => {
@@ -44,6 +45,7 @@ beforeAll(async () => {
     if (url.startsWith('https://hooks.example.com/')) {
       hookCalls.push(url)
       hookIds.push(new Headers(init?.headers).get('webhook-id'))
+      hookBodies.push(JSON.parse(init?.body as string) as (typeof hookBodies)[number])
       return Promise.resolve(new Response(null, { status: hookStatus }))
     }
     return realFetch(input, init)
@@ -54,6 +56,7 @@ beforeEach(() => {
   outbox.length = 0
   hookCalls.length = 0
   hookIds.length = 0
+  hookBodies.length = 0
   hookStatus = 200
   emailControl.fail = false
 })
@@ -323,5 +326,63 @@ describe('delivery', () => {
     expect(hookCalls).toEqual([])
     expect(outbox).toEqual([])
     expect((await readSubmission(app, body.submissionId)).status).toBe('partlyFailed')
+  })
+
+  test('date style shapes emails and the snapshot, not webhooks', async () => {
+    const long = (locale: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 12))
+    const es = long('es')
+    const en = long('en')
+    expect(es).not.toBe(en)
+    const form = await createForm(app, {
+      delivery: {
+        emails: [
+          { body: 'Start: {{start}}\n{{*}}', kind: 'team', label: 'Team', subject: 'New', to: 'team@example.com' },
+          { body: 'Start: {{start}}\n{{*}}', kind: 'visitor', label: 'Copy', subject: 'Copy', visitorField: 'email' },
+        ],
+        webhooks: [{ label: 'CRM', payloadMode: 'full', url: 'https://hooks.example.com/dates' }],
+        whatsapp: { enabled: true, number: '+1 555 000 1234' },
+      },
+      sections: [
+        section('s', [
+          field('email', 'email', { required: true, words: { label: 'Email' } }),
+          field('date', 'start', { displayStyle: 'long', mode: 'dayOnly', words: { label: 'Start' } }),
+        ]),
+      ],
+    })
+    hookStatus = 500
+    const res = await app.fetch(`/custom-forms/submit/${form.slug}?locale=es`, {
+      json: { _tz: 'America/New_York', email: 'ana@example.com', start: '2026-11-12' },
+      method: 'POST',
+    })
+    const body = (await res.json()) as Doc
+    expect(res.status).toBe(200)
+    const sub = await readSubmission(app, body.submissionId)
+    expect(sub.answers.start).toBe('2026-11-12')
+    expect(sub.metadata).toMatchObject({ locale: 'es', timeZone: 'America/New_York' })
+    expect(sub.snapshot.find((row: Doc) => row.fieldKey === 'start').value).toBe(es)
+    expect(decodeURIComponent(String(body.whatsappUrl))).toContain(es)
+    const copy = outbox.find((m) => m.to === 'ana@example.com')!
+    const teamMail = outbox.find((m) => m.to === 'team@example.com')!
+    expect(String(copy.text)).toContain(`Start: ${es}`)
+    expect(String(teamMail.text)).toContain(`Start: ${en}`)
+    expect(String(teamMail.text)).not.toContain('2026-11-12')
+    // The webhook carries the stored value and the recorded zone; the snapshot inside is the stored one.
+    expect(hookBodies).toHaveLength(1)
+    expect(hookBodies[0].answers.start).toBe('2026-11-12')
+    expect(hookBodies[0].submission.timeZone).toBe('America/New_York')
+    // Resent through the endpoint: the zone comes from metadata.timeZone.
+    hookBodies.length = 0
+    hookStatus = 200
+    const resend = await app.fetch(`/custom-form-submissions/${body.submissionId}/resend`, { method: 'POST', token: adminToken })
+    expect(resend.status).toBe(200)
+    expect(hookBodies).toHaveLength(1)
+    expect(hookBodies[0].answers.start).toBe('2026-11-12')
+    expect(hookBodies[0].submission.timeZone).toBe('America/New_York')
+    // Without _tz: no zone in the body at all (as 0.4.0).
+    hookBodies.length = 0
+    await submit(app, form.slug, { email: 'ana@example.com', start: '2026-11-12' })
+    expect(hookBodies).toHaveLength(1)
+    expect(JSON.stringify(hookBodies[0])).not.toContain('timeZone')
+    expect(Object.keys(hookBodies[0].submission).sort()).toEqual(['attachments', 'id', 'snapshot'])
   })
 })

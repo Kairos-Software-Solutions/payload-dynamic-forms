@@ -112,6 +112,11 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
           { name: 'ip', type: 'text', admin: { description: 'Kept only when the plugin option metadata.ip is on.' } },
           { name: 'userAgent', type: 'textarea' },
           { name: 'locale', type: 'text' },
+          {
+            name: 'timeZone',
+            type: 'text',
+            admin: { description: "The visitor's IANA time zone. Kept only when the plugin option metadata.timeZone is on." },
+          },
         ],
       },
     ],

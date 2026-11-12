@@ -118,8 +118,12 @@ export type FormsPluginOptions = {
   formOverrides?: CollectionOverride
   /** Name of the honeypot field in a submission. Default `_hp`. */
   honeypotField?: string
-  /** What a submission keeps about the request. Default: IP off, user agent on. */
-  metadata?: { ip?: boolean; userAgent?: boolean }
+  /**
+   * What a submission keeps about the request. Default: IP off, user agent on, time zone on.
+   * `timeZone: false`: the visitor's zone (`_tz`) is still used for that request (checks, UTC
+   * conversion, snapshot and messages) but not stored, so webhooks carry no zone.
+   */
+  metadata?: { ip?: boolean; timeZone?: boolean; userAgent?: boolean }
   /** Collections whose items can be the choices of select, radio and checkbox-group fields. */
   optionSources?: Record<string, OptionSource>
   /** Per form and visitor. Default 5 per 600 s. `false` turns it off. */
@@ -128,6 +132,12 @@ export type FormsPluginOptions = {
   slugs?: { attachments?: string; forms?: string; submissions?: string }
   /** Overrides for the submissions collection. */
   submissionOverrides?: CollectionOverride
+  /**
+   * IANA time zone (default `UTC`) for submissions that send no usable `_tz`: `today` date limits,
+   * UTC storage of Date and time answers, and showing UTC instants without a recorded zone.
+   * An unknown zone throws when the config is built.
+   */
+  timezone?: string
   /** Cloudflare Turnstile checked on the server. On with no secret refuses every submission. */
   turnstile?: { enabled?: boolean; fieldName?: string; secretKey?: string }
   /** Webhook secrets and headers from the config, and whether signing is required. */
@@ -155,9 +165,10 @@ export type ResolvedOptions = {
   fieldTypes: Record<string, FieldTypeChecks>
   honeypotField: string
   isAdmin: (req: PayloadRequest) => boolean
-  metadata: { ip: boolean; userAgent: boolean }
+  metadata: { ip: boolean; timeZone: boolean; userAgent: boolean }
   rateLimit: { max: number; windowSeconds: number } | null
   slugs: { attachments: string; forms: string; submissions: string }
+  timezone: string
   turnstile: { enabled: boolean; fieldName: string; secretKey: string }
   webhooks: {
     requireSignature: boolean

@@ -6,7 +6,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import { LEVEL_CHECKBOX_STYLE } from '../src/collections/adminStyle.js'
 import { OPERATORS } from '../src/exports/shared.js'
-import { formBlock, formsPlugin } from '../src/index.js'
+import { formBlock, formsPlugin, resolveOptions } from '../src/index.js'
 import fieldPaths030 from './fixtures/field-paths-0.3.0.json' with { type: 'json' }
 
 function baseConfig(): Config {
@@ -707,5 +707,28 @@ describe('plugin config', () => {
     // Section key, 10 question keys, 10 prefill parameters, 12 rule keys, the next-step target, the radio hint,
     // and the typed defaults: number, date, Earliest, Latest, select, radio and checkbox group.
     expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1 + 7)
+  })
+
+  test('timezone option defaults to UTC and refuses unknown zones', () => {
+    expect(resolveOptions({}).timezone).toBe('UTC')
+    expect(resolveOptions({ timezone: 'America/New_York' }).timezone).toBe('America/New_York')
+    const config = formsPlugin({ timezone: 'America/New_York' })(baseConfig())
+    expect((config.custom as { payloadForms: { timezone: string } }).payloadForms.timezone).toBe('America/New_York')
+    expect(() => formsPlugin({ timezone: 'Mars/Base' })(baseConfig())).toThrow(/Mars\/Base/)
+    expect(() => formsPlugin({ timezone: 'Mars/Base' })(baseConfig())).toThrow('formsPlugin: timezone "Mars/Base" is not a known IANA time zone.')
+  })
+
+  test('metadata time zone option defaults to on', () => {
+    expect(resolveOptions({}).metadata).toEqual({ ip: false, timeZone: true, userAgent: true })
+    expect(resolveOptions({ metadata: { timeZone: false } }).metadata).toEqual({ ip: false, timeZone: false, userAgent: true })
+    expect(resolveOptions({ metadata: { ip: true } }).metadata.timeZone).toBe(true)
+    // The submission keeps it in a text field of its metadata group.
+    let found: Field | undefined
+    walk(collection(formsPlugin({})(baseConfig()), 'custom-form-submissions').fields, (field, p) => {
+      if (p === 'metadata.timeZone') {
+        found = field
+      }
+    })
+    expect(found).toMatchObject({ name: 'timeZone', type: 'text' })
   })
 })

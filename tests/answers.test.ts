@@ -11,6 +11,7 @@ import {
   type FormLike,
   interpolate,
   normalizeAnswer,
+  resolveDateLimit,
   WORD_KEYS,
 } from '../src/exports/shared.js'
 import { input } from './fixtures/forms.js'
@@ -145,5 +146,78 @@ describe('answer checks', () => {
     // A registered type's toText gets the same words.
     const custom = { checkbox: { toText: (v: unknown, _f: unknown, w: { no: string; yes: string }) => (v ? `+${w.yes}` : `-${w.no}`) } }
     expect(buildTemplateValues(spanish, answers, {}, custom)).toMatchObject({ agree: '+Sí', news: '-No (es)' })
+  })
+
+  test('date mode accepts calendar dates as sent', () => {
+    const form = oneField(input('date', 'day', { minDate: '2026-11-01', mode: 'dayOnly' }))
+    const ok = checkAnswers(form, { day: ' 2026-11-12 ' })
+    expect(ok.ok).toBe(true)
+    expect(ok.answers.day).toBe('2026-11-12')
+    for (const bad of ['2026-02-30', '12/11/2026', '2026-10-31']) {
+      const result = checkAnswers(form, { day: bad })
+      expect(result.ok, bad).toBe(false)
+      expect(result.fieldErrors.day, bad).toBe('day is not valid.')
+    }
+  })
+
+  test('a date question without a mode is a Date question', () => {
+    for (const mode of [null, undefined, 'dayOnly'] as const) {
+      const form = oneField(input('date', 'day', { mode }))
+      const ok = checkAnswers(form, { day: '2026-11-12' })
+      expect(ok.ok, String(mode)).toBe(true)
+      expect(ok.answers.day, String(mode)).toBe('2026-11-12')
+      expect(checkAnswers(form, { day: '14:30' }).fieldErrors.day, String(mode)).toBe('day is not valid.')
+    }
+  })
+
+  test('time mode accepts times within its limits', () => {
+    const form = oneField(input('date', 'slot', { maxDate: '17:00', minDate: '09:00', mode: 'timeOnly' }))
+    for (const good of ['14:30', '14:30:15', '09:00', '17:00']) {
+      const result = checkAnswers(form, { slot: good })
+      expect(result.ok, good).toBe(true)
+      expect(result.answers.slot, good).toBe(good)
+    }
+    for (const bad of ['08:59', '24:00', '2:30 pm', '17:01', '2026-11-12']) {
+      expect(checkAnswers(form, { slot: bad }).ok, bad).toBe(false)
+    }
+  })
+
+  test('date and time mode accepts local date-times within its limits', () => {
+    const form = oneField(input('date', 'when', { maxDate: '2026-12-31T18:00', mode: 'dayAndTime' }))
+    for (const good of ['2026-11-12T14:30', '2026-11-12T14:30:05']) {
+      const result = checkAnswers(form, { when: good })
+      expect(result.ok, good).toBe(true)
+      expect(result.answers.when, good).toBe(good)
+    }
+    for (const bad of ['2026-11-12T14:30Z', '2026-11-12', '2027-01-01T09:00', '2026-11-31T10:00', '2026-11-12T25:00']) {
+      expect(checkAnswers(form, { when: bad }).ok, bad).toBe(false)
+    }
+  })
+
+  test("today limits resolve in the visitor's time zone", () => {
+    const now = new Date('2026-11-12T03:00:00Z')
+    const day = input('date', 'day', { minDate: 'today' })
+    const form = oneField(day)
+    const ny = { now, timeZone: 'America/New_York' }
+    expect(checkAnswers(form, { day: '2026-11-11' }, ny).ok).toBe(true)
+    expect(checkAnswers(form, { day: '2026-11-10' }, ny).ok).toBe(false)
+    expect(checkAnswers(form, { day: '2026-11-11' }, { now, timeZone: 'UTC' }).ok).toBe(false)
+    expect(checkAnswers(form, { day: '2026-11-12' }, { now, timeZone: 'UTC' }).ok).toBe(true)
+    expect(resolveDateLimit(day, 'min', ny)).toBe('2026-11-11')
+    expect(resolveDateLimit(day, 'min', { now, timeZone: 'UTC' })).toBe('2026-11-12')
+    expect(resolveDateLimit(day, 'max', ny)).toBeNull()
+
+    const when = input('date', 'when', { maxDate: 'today', minDate: 'today', mode: 'dayAndTime' })
+    const both = oneField(when)
+    for (const good of ['2026-11-11T00:00', '2026-11-11T23:59']) {
+      expect(checkAnswers(both, { when: good }, ny).ok, good).toBe(true)
+    }
+    for (const bad of ['2026-11-10T23:59', '2026-11-12T00:00']) {
+      expect(checkAnswers(both, { when: bad }, ny).ok, bad).toBe(false)
+    }
+    expect(resolveDateLimit(when, 'min', ny)).toBe('2026-11-11T00:00')
+    expect(resolveDateLimit(when, 'max', ny)).toBe('2026-11-11T23:59')
+    // A Time question's limits have no today.
+    expect(resolveDateLimit(input('date', 'slot', { minDate: 'today', mode: 'timeOnly' }), 'min', ny)).toBeNull()
   })
 })

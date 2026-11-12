@@ -29,9 +29,13 @@ export type DeliveryContext = {
   locale?: TypedLocale
   options: ResolvedOptions
   payload: Payload
+  /** The visitor's zone as recorded on the submission (`metadata.timeZone`); webhooks carry it. */
+  recordedTimeZone?: string
   req: PayloadRequest
   snapshot: SnapshotRow[]
   submissionId?: number | string
+  /** The zone date answers are shown in: the visitor's, else the plugin's `timezone`. */
+  timeZone?: string
 }
 
 /** The words an email is written from: the form read in one locale and that read's output. */
@@ -74,12 +78,15 @@ async function sendOneEmail(ctx: DeliveryContext, output: EmailOutput, words: Em
   }
   // Labels, Yes/No, the title, subject and body come from the form read in the email's language.
   const { form } = words
-  const rows = buildMessageRows(form, ctx.answers, ctx.options.fieldTypes)
+  // Dates in the email's own language, in the submission's zone.
+  const dates = { locale: words.locale ?? null, timeZone: ctx.timeZone ?? ctx.options.timezone }
+  const rows = buildMessageRows(form, ctx.answers, ctx.options.fieldTypes, dates)
   const values = buildTemplateValues(
     form,
     ctx.answers,
     { formTitle: form.title, submissionId: ctx.submissionId === undefined ? '' : String(ctx.submissionId) },
     ctx.options.fieldTypes,
+    dates,
   )
   const body = words.output.body || '{{*:table}}'
   const replyKey = String(output.replyToField || '')
@@ -152,9 +159,12 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
     }
   }
   const configHeaders = (await configValue(ctx.options.webhooks?.headers, args)) || null
+  // Stored values only; the zone is added only when one was recorded, so a body without one is
+  // the same as 0.4.0's.
+  const zone = ctx.recordedTimeZone ? { timeZone: ctx.recordedTimeZone } : {}
   const body =
     output.payloadMode === 'answersOnly'
-      ? { answers: ctx.answers }
+      ? { answers: ctx.answers, ...zone }
       : {
           answers: ctx.answers,
           form: { id: ctx.form.id, slug: ctx.form.slug, title: ctx.form.title },
@@ -162,6 +172,7 @@ async function sendOneWebhook(ctx: DeliveryContext, output: WebhookOutput): Prom
             id: ctx.submissionId ?? null,
             attachments: ctx.attachments || [],
             snapshot: ctx.snapshot,
+            ...zone,
           },
         }
   // Stable for a stored submission (retries and resends); random once per delivery otherwise.

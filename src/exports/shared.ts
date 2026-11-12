@@ -14,7 +14,23 @@ export {
   type FileLimits,
   isValidEmail,
   normalizeAnswer,
+  toStoredAnswers,
 } from '../shared/answers.js'
+export {
+  browserTimeZone,
+  type DateContext,
+  type DateDisplayStyle,
+  type DateMode,
+  type DateNow,
+  type DateValueFormat,
+  formatAnswerDate,
+  isTimeZone,
+  resolveDateLimit,
+  TIME_ZONE_FIELD,
+  TODAY,
+  toStoredDateAnswer,
+  toUtcInstant,
+} from '../shared/dates.js'
 export { MATCH_MODES, OPERATOR_VALUES, OPERATORS, type OperatorValue } from '../shared/operators.js'
 export {
   defaultAnswer,
@@ -39,6 +55,7 @@ export {
   normalizeKey,
   readRuleValue,
   splitRuleKey,
+  type StartContext,
 } from '../shared/rules.js'
 export { getNextSectionKey, getStepPath, getStepProgress, getVisibility, type Visibility } from '../shared/steps.js'
 export {

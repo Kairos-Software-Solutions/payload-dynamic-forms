@@ -1,3 +1,4 @@
+import type { DateContext } from './dates.js'
 import type { Answers, FieldTypeChecks, FormLike, InputBlock } from './types.js'
 
 import { answerToText } from './answers.js'
@@ -71,11 +72,12 @@ export function interpolate(
   return options.singleLine ? out.replace(/[\r\n]+/g, ' ').trim() : out
 }
 
-/** One row per answered, shown field, in form order, using each field's row label. */
+/** One row per answered, shown field, in form order, using each field's row label (`dates`: see `answerToText`). */
 export function buildMessageRows(
   form: FormLike,
   answers: Answers,
   fieldTypes?: Record<string, FieldTypeChecks>,
+  dates?: DateContext,
 ): MessageRow[] {
   const { answers: shown } = getVisibility(form, answers)
   const words = fillWords(form.wording)
@@ -84,7 +86,7 @@ export function buildMessageRows(
     if (!(key in shown) || !hasAnswer(shown[key])) {
       continue
     }
-    const value = answerToText(field, shown[key], words, fieldTypes)
+    const value = answerToText(field, shown[key], words, fieldTypes, dates)
     if (!value.trim()) {
       continue
     }
@@ -110,12 +112,13 @@ function chosenAttributes(field: InputBlock, value: unknown): Record<string, str
   return out
 }
 
-/** Token values for a form's shown answers: `{{key}}`, `{{key.attribute}}` plus `extra`. */
+/** Token values for a form's shown answers: `{{key}}`, `{{key.attribute}}` plus `extra` (`dates`: see `answerToText`). */
 export function buildTemplateValues(
   form: FormLike,
   answers: Answers,
   extra: Record<string, TokenValue> = {},
   fieldTypes?: Record<string, FieldTypeChecks>,
+  dates?: DateContext,
 ): Record<string, TokenValue> {
   const { answers: shown } = getVisibility(form, answers)
   const words = fillWords(form.wording)
@@ -124,7 +127,7 @@ export function buildTemplateValues(
     if (!(key in shown)) {
       continue
     }
-    values[key] = answerToText(field, shown[key], words, fieldTypes)
+    values[key] = answerToText(field, shown[key], words, fieldTypes, dates)
     if (isChoiceBlock(field)) {
       for (const [name, attr] of Object.entries(chosenAttributes(field, shown[key]))) {
         values[`${key}.${name}`] = attr

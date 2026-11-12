@@ -1,13 +1,17 @@
+import { sql } from '@payloadcms/db-sqlite'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 import { devPluginOptions } from '../../dev/payload.config.js'
 import { DEFAULT_WORDS } from '../../src/exports/shared.js'
-import { type App, countDocs, createForm, field, outbox, section, startApp, submit, translateForm } from './helpers.js'
+import { getPublicForm } from '../../src/index.js'
+import { type App, countDocs, createForm, type Doc, field, outbox, section, startApp, submit, translateForm } from './helpers.js'
 
 let app: App
 let appIp: App
 let appTs: App
 let siteverify: { success: boolean }
+/** Webhook bodies the apps sent to https://hooks.example.com/ (answered 200). */
+const hookBodies: Doc[] = []
 
 const postcode = {
   block: { slug: 'postcode', fields: [], labels: { plural: 'Postcodes', singular: 'Postcode' } },
@@ -16,7 +20,7 @@ const postcode = {
 
 beforeAll(async () => {
   app = await startApp({ plugin: { fields: { fileUpload: true, postcode } } })
-  appIp = await startApp({ plugin: { metadata: { ip: true } } })
+  appIp = await startApp({ plugin: { metadata: { ip: true, timeZone: false } } })
   appTs = await startApp({
     plugin: { rateLimit: { max: 3, windowSeconds: 600 }, turnstile: { secretKey: 'test-only-turnstile-secret' } },
   })
@@ -26,6 +30,10 @@ beforeAll(async () => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url.startsWith('https://challenges.cloudflare.com/turnstile/v0/siteverify')) {
       return Promise.resolve(Response.json(siteverify))
+    }
+    if (url.startsWith('https://hooks.example.com/')) {
+      hookBodies.push(JSON.parse(init?.body as string) as Doc)
+      return Promise.resolve(new Response(null, { status: 200 }))
     }
     return realFetch(input, init)
   })
@@ -347,6 +355,105 @@ describe('submit', () => {
     for (const message of [invalid, security, generic, ok, tries, closed].map((r) => r.body.message)) {
       expect(message).toMatch(/^M-/)
     }
+  })
+})
+
+describe('date answers', () => {
+  const hook = { webhooks: [{ label: 'Hook', url: 'https://hooks.example.com/dates' }] }
+  const readSub = async (target: App, id: number | string) =>
+    (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+
+  test('date answers are stored as the browser sent them', async () => {
+    const form = await createForm(app, {
+      delivery: hook,
+      sections: [
+        section('s', [
+          field('date', 'day', { mode: 'dayOnly' }),
+          field('date', 'slot', { mode: 'timeOnly' }),
+          field('date', 'when', { mode: 'dayAndTime' }),
+        ]),
+      ],
+    })
+    hookBodies.length = 0
+    const sent = { day: '2026-11-12', slot: '14:30', when: '2026-11-12T14:30' }
+    const { body, status } = await submit(app, form.slug, { ...sent, _tz: 'America/New_York' })
+    expect(status).toBe(200)
+    const sub = await readSub(app, body.submissionId)
+    expect(sub.answers).toEqual(sent)
+    expect(sub.snapshot.map((row: Doc) => row.value)).toEqual(['2026-11-12', '14:30', '2026-11-12T14:30'])
+    expect(sub.metadata.timeZone).toBe('America/New_York')
+    expect(hookBodies).toHaveLength(1)
+    expect(hookBodies[0].answers).toEqual(sent)
+    expect(hookBodies[0].submission.snapshot.map((row: Doc) => row.value)).toEqual(['2026-11-12', '14:30', '2026-11-12T14:30'])
+    expect(hookBodies[0].submission.timeZone).toBe('America/New_York')
+  })
+
+  test("utc date-times are converted with the visitor's zone", async () => {
+    const form = await createForm(app, {
+      delivery: hook,
+      sections: [section('s', [field('date', 'when', { mode: 'dayAndTime', valueFormat: 'utc' })])],
+    })
+    hookBodies.length = 0
+    const { body } = await submit(app, form.slug, { _tz: 'America/New_York', when: '2026-11-12T14:30' })
+    const sub = await readSub(app, body.submissionId)
+    expect(sub.answers.when).toBe('2026-11-12T19:30:00.000Z')
+    expect(sub.metadata.timeZone).toBe('America/New_York')
+    expect(hookBodies[0].answers.when).toBe('2026-11-12T19:30:00.000Z')
+    expect(hookBodies[0].submission.timeZone).toBe('America/New_York')
+  })
+
+  test('utc date-times fall back to the plugin time zone', async () => {
+    const form = await createForm(app, {
+      sections: [section('s', [field('date', 'when', { mode: 'dayAndTime', valueFormat: 'utc' })])],
+    })
+    for (const extra of [{}, { _tz: 'Not/AZone' }]) {
+      const { body, status } = await submit(app, form.slug, { when: '2026-11-12T14:30', ...extra })
+      expect(status, JSON.stringify(extra)).toBe(200)
+      const sub = await readSub(app, body.submissionId)
+      expect(sub.answers.when, JSON.stringify(extra)).toBe('2026-11-12T14:30:00.000Z')
+      expect(sub.metadata.timeZone ?? null, JSON.stringify(extra)).toBeNull()
+    }
+  })
+
+  test('date questions saved before 0.5.0 stay Date questions', async () => {
+    const form = await createForm(app, { sections: [section('s', [field('date', 'day', { minDate: '2026-01-01' })])] })
+    const read = async () =>
+      (await app.payload.findByID({ id: form.id, collection: 'custom-forms' as never, depth: 0, overrideAccess: true })) as Doc
+    const rowId = (await read()).sections[0].fields[0].id as string
+    const db = app.payload.db as unknown as { drizzle: { all: (q: unknown) => Promise<unknown[]>; run: (q: unknown) => Promise<unknown> } }
+    // As a 0.4.0 row reads when a site skipped the backfill: the three columns NULL, in both tables.
+    await db.drizzle.run(sql`UPDATE custom_forms_blocks_date SET mode = NULL, value_format = NULL, display_style = NULL WHERE id = ${rowId}`)
+    await db.drizzle.run(sql`UPDATE _custom_forms_v_blocks_date SET mode = NULL, value_format = NULL, display_style = NULL WHERE _uuid = ${rowId}`)
+    const stored = (await read()).sections[0].fields[0]
+    expect([stored.mode, stored.valueFormat, stored.displayStyle]).toEqual([null, null, null])
+    const shown = await getPublicForm(app.payload, form.slug)
+    expect(shown!.sections[0].fields![0]).toMatchObject({ displayStyle: 'asStored', mode: 'dayOnly', valueFormat: 'local' })
+    const { body, status } = await submit(app, form.slug, { day: '2026-11-12' })
+    expect(status).toBe(200)
+    expect((await readSub(app, body.submissionId)).answers.day).toBe('2026-11-12')
+    // A save that resends the row ids keeps the columns NULL (no default is written on update).
+    const doc = await read()
+    doc.sections[0].title = 'Renamed'
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
+    const rows = (await db.drizzle.all(sql`SELECT mode, value_format, display_style FROM custom_forms_blocks_date WHERE id = ${rowId}`)) as Doc[]
+    expect(rows).toEqual([{ display_style: null, mode: null, value_format: null }])
+    expect((await read()).sections[0].title).toBe('Renamed')
+  })
+
+  test('time zone is used but not stored when metadata.timeZone is off', async () => {
+    const form = await createForm(appIp, {
+      delivery: { webhooks: [{ label: 'Hook', url: 'https://hooks.example.com/no-zone' }] },
+      sections: [section('s', [field('date', 'when', { mode: 'dayAndTime', valueFormat: 'utc' })])],
+    })
+    hookBodies.length = 0
+    const { body } = await submit(appIp, form.slug, { _tz: 'America/New_York', when: '2026-11-12T14:30' })
+    const sub = await readSub(appIp, body.submissionId)
+    expect(sub.answers.when).toBe('2026-11-12T19:30:00.000Z')
+    expect(sub.metadata.timeZone ?? null).toBeNull()
+    expect(hookBodies).toHaveLength(1)
+    expect(hookBodies[0].answers.when).toBe('2026-11-12T19:30:00.000Z')
+    expect(JSON.stringify(hookBodies[0])).not.toContain('timeZone')
+    expect('timeZone' in hookBodies[0].submission).toBe(false)
   })
 })
 

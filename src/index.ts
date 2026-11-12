@@ -11,6 +11,7 @@ import { publicFormEndpoint } from './endpoints/public.js'
 import { resendEndpoint } from './endpoints/resend.js'
 import { submitEndpoint } from './endpoints/submit.js'
 import { DEFAULT_FILE_LIMITS } from './shared/answers.js'
+import { isTimeZone } from './shared/dates.js'
 import { DEFAULT_WORDS } from './shared/words.js'
 
 export const DEFAULT_SLUGS = {
@@ -34,6 +35,10 @@ export function resolveOptions(options: FormsPluginOptions = {}): ResolvedOption
   if (attachments && !attachments.createCollection) {
     slugs.attachments = attachments.collection
   }
+  const timezone = options.timezone ?? 'UTC'
+  if (!isTimeZone(timezone)) {
+    throw new Error(`formsPlugin: timezone "${String(timezone)}" is not a known IANA time zone.`)
+  }
   return {
     attachments,
     beforeEmail: options.beforeEmail,
@@ -41,13 +46,18 @@ export function resolveOptions(options: FormsPluginOptions = {}): ResolvedOption
     fieldTypes: {},
     honeypotField: options.honeypotField || '_hp',
     isAdmin: options.access?.isAdmin || ((req: PayloadRequest) => Boolean(req.user)),
-    metadata: { ip: options.metadata?.ip === true, userAgent: options.metadata?.userAgent !== false },
+    metadata: {
+      ip: options.metadata?.ip === true,
+      timeZone: options.metadata?.timeZone !== false,
+      userAgent: options.metadata?.userAgent !== false,
+    },
     optionSources: options.optionSources,
     rateLimit:
       options.rateLimit === false
         ? null
         : { max: options.rateLimit?.max ?? 5, windowSeconds: options.rateLimit?.windowSeconds ?? 600 },
     slugs,
+    timezone,
     turnstile: {
       enabled: options.turnstile ? options.turnstile.enabled !== false : false,
       fieldName: options.turnstile?.fieldName || 'cf-turnstile-response',
