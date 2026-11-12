@@ -28,7 +28,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-function base64ToBytes(base64: string): Uint8Array {
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) {
@@ -38,7 +38,7 @@ function base64ToBytes(base64: string): Uint8Array {
 }
 
 /** Base64 HMAC-SHA256 of `text` keyed by raw bytes. */
-export async function hmacSha256Base64(key: Uint8Array, text: string): Promise<string> {
+export async function hmacSha256Base64(key: Uint8Array<ArrayBuffer>, text: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   return bytesToBase64(new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(text))))
 }
@@ -47,7 +47,7 @@ export async function hmacSha256Base64(key: Uint8Array, text: string): Promise<s
  * The Standard Webhooks HMAC key: the base64-decoded bytes after the prefix of a `whsec_` secret,
  * else the secret's UTF-8 bytes.
  */
-export function standardWebhooksKey(secret: string): Uint8Array {
+export function standardWebhooksKey(secret: string): Uint8Array<ArrayBuffer> {
   if (secret.startsWith('whsec_')) {
     try {
       return base64ToBytes(secret.slice('whsec_'.length))

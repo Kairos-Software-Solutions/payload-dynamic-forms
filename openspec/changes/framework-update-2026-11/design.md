@@ -32,6 +32,7 @@ React is 19.3.1, the newest release, and every range that applies accepts it:
 
 ### 2. No release; 0.5.0 accepts the new stack
 
+- One exception to "no `src/` change": TypeScript 6's `lib.dom` types `BufferSource` as `ArrayBufferView<ArrayBuffer> | ArrayBuffer`, so `crypto.subtle.importKey('raw', key, …)` in `src/security/crypto.ts` rejects a `Uint8Array<ArrayBufferLike>` (TS2769). That file alone gets type annotations only: `hmacSha256Base64`'s `key` parameter and the return types of `base64ToBytes` and `standardWebhooksKey` become `Uint8Array<ArrayBuffer>` (the values are already built by `new Uint8Array(n)` and `TextEncoder.encode`). No casts and no runtime change: the emitted `dist/security/crypto.js` is byte-identical to a build of the base tree; only `crypto.d.ts` (and the source map) differ.
 - `version` stays `0.5.0`. On the merge, Release's "Prepare the release" step finds tag `v0.5.0` and sets `publish=false` ("v0.5.0 already exists. Nothing to release."). Nothing is installed, built or published by it. CI runs every check on the branch and the PR.
 - Why no release is needed: the published 0.5.0 manifest (`npm view payload-dynamic-forms@0.5.0`) has no `dependencies`. Its peers are `payload ^3.92.1`, `@payloadcms/ui ^3.92.1` and `react ^19.2.1`, so none of the advisories travel inside the package. Apps get `next`, `react`, `payload` and their sub-dependencies from their own lockfiles.
 - 0.5.0 and the site stack:
