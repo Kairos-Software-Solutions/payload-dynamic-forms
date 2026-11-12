@@ -9,7 +9,7 @@ import { validateFormBeforeSave } from '../hooks/validateForm.js'
 import { DEFAULT_WHATSAPP_ROW_TEMPLATE, DEFAULT_WHATSAPP_TEMPLATE } from '../shared/whatsapp.js'
 import { WORD_KEYS } from '../shared/words.js'
 import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
-import { nextStepRulesField, ruleGroupField } from './ruleFields.js'
+import { jumpSkipHintField, nextStepRulesField, ruleGroupField } from './ruleFields.js'
 
 const WORD_HELP: Record<string, string> = {
   errorPrefix: 'Shown above the field errors.',
@@ -323,6 +323,7 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
                   },
                   ruleGroupField('visibilityRules', 'Show section when'),
                   nextStepRulesField(),
+                  jumpSkipHintField(),
                 ],
                 minRows: 1,
                 required: true,

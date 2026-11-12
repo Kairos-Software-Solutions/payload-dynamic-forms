@@ -544,7 +544,7 @@ describe('plugin config', () => {
     }
   })
 
-  test('rule fields are labelled Field and Next section', () => {
+  test('rule fields are labelled Field and jumps Jump to section when', () => {
     const config = formsPlugin({})(baseConfig())
     const ruleRows = [
       fieldsAt(config, 'sections.fields.text.visibilityRules.rows'),
@@ -556,9 +556,35 @@ describe('plugin config', () => {
       expect(key.type).toBe('text')
       expect(key.label).toBe('Field')
     }
-    const target = named<{ label?: unknown; type: string }>(fieldsAt(config, 'sections.nextStepRules'), 'targetSectionKey')
+    let jumps: { admin: { condition: (data: unknown) => boolean; description: string }; label: string; labels: unknown; name: string; type: string } | undefined
+    walk(collection(config, 'custom-forms').fields, (field, p) => {
+      if (p === 'sections.nextStepRules') {
+        jumps = field as never
+      }
+    })
+    expect(jumps).toBeDefined()
+    expect(jumps!.name).toBe('nextStepRules')
+    expect(jumps!.type).toBe('array')
+    expect(jumps!.label).toBe('Jump to section when')
+    expect(jumps!.labels).toEqual({ plural: 'Jumps', singular: 'Jump' })
+    expect(jumps!.admin.description).toBe('Skips every section in between, even ones whose show rules match.')
+    expect(jumps!.admin.condition({ presentationMode: 'steps' })).toBe(true)
+    expect(jumps!.admin.condition({ presentationMode: 'singlePage' })).toBe(false)
+    const target = named<{ label?: unknown; name: string; type: string }>(fieldsAt(config, 'sections.nextStepRules'), 'targetSectionKey')
+    expect(target.name).toBe('targetSectionKey')
     expect(target.type).toBe('text')
-    expect(target.label).toBe('Next section')
+    expect(target.label).toBe('Jump to section')
+  })
+
+  test('jump skip hint follows the jumps', () => {
+    const sections = fieldsAt(formsPlugin({})(baseConfig()), 'sections')
+    const names = sections.map((f) => ('name' in f ? f.name : f.type))
+    expect(names.indexOf('jumpSkipHint')).toBe(names.indexOf('nextStepRules') + 1)
+    const hint = sections[names.indexOf('jumpSkipHint')] as { admin: { components: { Field: string }; condition: (data: unknown) => boolean }; type: string }
+    expect(hint.type).toBe('ui')
+    expect(hint.admin.components.Field).toBe('payload-dynamic-forms/client#JumpSkipHint')
+    expect(hint.admin.condition({ presentationMode: 'steps' })).toBe(true)
+    expect(hint.admin.condition({ presentationMode: 'singlePage' })).toBe(false)
   })
 
   test('row checkboxes carry the level style', () => {
@@ -679,6 +705,7 @@ describe('plugin config', () => {
     expect([...exported].sort()).toEqual([
       'DateValueField',
       'DefaultChoiceField',
+      'JumpSkipHint',
       'KeyField',
       'NoAnswerHint',
       'NumberDefaultField',
@@ -705,8 +732,8 @@ describe('plugin config', () => {
       })
     }
     // Section key, 10 question keys, 10 prefill parameters, 12 rule keys, the next-step target, the radio hint,
-    // and the typed defaults: number, date, Earliest, Latest, select, radio and checkbox group.
-    expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1 + 7)
+    // the typed defaults (number, date, Earliest, Latest, select, radio, checkbox group) and the jump skip hint.
+    expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1 + 7 + 1)
   })
 
   test('timezone option defaults to UTC and refuses unknown zones', () => {

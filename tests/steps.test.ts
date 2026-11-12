@@ -53,4 +53,24 @@ describe('steps', () => {
     form.wording = { stepProgress: 'Paso {{current}} de {{total}}' }
     expect(getStepProgress(form, { budget: 5000 }, 'd').text).toBe('Paso 3 de 3')
   })
+
+  test('a jump skips a section whose show rule matches', () => {
+    const form: FormLike = {
+      presentationMode: 'steps',
+      sections: [
+        {
+          fields: [input('radio', 'kind', { options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] })],
+          key: 's1',
+          nextStepRules: [{ rows: [{ fieldKey: 'kind', operator: 'equals', value: 'a' }], targetSectionKey: 's3' }],
+        },
+        { fields: [input('text', 'more')], key: 's2', visibilityRules: { rows: [{ fieldKey: 'kind', operator: 'equals', value: 'a' }] } },
+        { fields: [input('text', 'last')], key: 's3' },
+      ],
+    }
+    expect(getStepPath(form, { kind: 'a' })).toEqual(['s1', 's3'])
+    expect(getStepPath(form, { kind: 'b' })).toEqual(['s1', 's3'])
+    expect(getNextSectionKey(form, 's1', { kind: 'a' })).toBe('s3')
+    // s2's show rule matches for a, but the jump goes past it, so its answers are not kept.
+    expect(checkAnswers(form, { kind: 'a', last: 'x', more: 'y' }).answers).toEqual({ kind: 'a', last: 'x' })
+  })
 })

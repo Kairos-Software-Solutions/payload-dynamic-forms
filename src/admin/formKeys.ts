@@ -92,3 +92,65 @@ export function joinRuleKey(key: string, attribute: string): string {
   const a = attribute.trim()
   return key && a ? `${key}.${a}` : key
 }
+export type SkippedSection = {
+  /** The key of a section the jump passes over that has its own show rules. */
+  skipped: string
+  /** The jump's target section key. */
+  target: string
+}
+
+const JUMP_TARGET = /^sections\.(\d+)\.nextStepRules\.(\d+)\.targetSectionKey$/
+const SHOW_RULE_KEY = /^sections\.(\d+)\.visibilityRules\.rows\.\d+\.fieldKey$/
+
+/**
+ * For the section at `ownIndex`: each section one of its jumps passes over (strictly between this
+ * section and the target, in form order) that has at least one show rule naming a field key. In
+ * jump order, each pair once. A jump back, to itself or to a missing key passes over nothing.
+ */
+export function skippedSectionsWithShowRules(state: FormStateLike, ownIndex: number): SkippedSection[] {
+  const keys = new Map<number, string>()
+  const withRules = new Set<number>()
+  const jumps: { r: number; target: string }[] = []
+  for (const path of Object.keys(state)) {
+    const section = SECTION_PATH.exec(path)
+    if (section) {
+      const key = normalizeKey(valueAt(state, path))
+      if (key) {
+        keys.set(Number(section[1]), key)
+      }
+      continue
+    }
+    const rule = SHOW_RULE_KEY.exec(path)
+    if (rule) {
+      if (splitStoredRuleKey(valueAt(state, path)).key) {
+        withRules.add(Number(rule[1]))
+      }
+      continue
+    }
+    const jump = JUMP_TARGET.exec(path)
+    if (jump && Number(jump[1]) === ownIndex) {
+      const target = normalizeKey(valueAt(state, path))
+      if (target) {
+        jumps.push({ r: Number(jump[2]), target })
+      }
+    }
+  }
+  jumps.sort((a, b) => a.r - b.r)
+  const out: SkippedSection[] = []
+  const seen = new Set<string>()
+  for (const { target } of jumps) {
+    const targetIndex = [...keys.entries()].find(([, key]) => key === target)?.[0]
+    if (targetIndex === undefined || targetIndex <= ownIndex) {
+      continue
+    }
+    for (let s = ownIndex + 1; s < targetIndex; s++) {
+      const skipped = keys.get(s)
+      if (!skipped || !withRules.has(s) || seen.has(`${target}\u0000${skipped}`)) {
+        continue
+      }
+      seen.add(`${target}\u0000${skipped}`)
+      out.push({ skipped, target })
+    }
+  }
+  return out
+}

@@ -7,6 +7,7 @@ import {
   sectionIndexOf,
   sectionKeyOptions,
   siblingPath,
+  skippedSectionsWithShowRules,
   splitStoredRuleKey,
 } from '../src/admin/formKeys.js'
 import { caretAfterFormat, formatKeyInput } from '../src/admin/keys.js'
@@ -145,5 +146,43 @@ describe('admin logic', () => {
         process.env.TZ = savedTZ
       }
     }
+  })
+
+  test('jump hint lists skipped sections that have show rules', () => {
+    const form = {
+      'sections.0.key': 'a',
+      'sections.0.nextStepRules.0.targetSectionKey': 'd',
+      'sections.1.key': 'b',
+      'sections.1.visibilityRules.rows.0.fieldKey': 'kind',
+      'sections.2.key': 'c',
+      'sections.3.key': 'd',
+    }
+    expect(skippedSectionsWithShowRules(state(form), 0)).toEqual([{ skipped: 'b', target: 'd' }])
+    expect(skippedSectionsWithShowRules(state(form), 2)).toEqual([])
+    // A show rule row with an empty field key doesn't count.
+    expect(skippedSectionsWithShowRules(state({ ...form, 'sections.1.visibilityRules.rows.0.fieldKey': '' }), 0)).toEqual([])
+    // Another section's jumps, a jump back and a missing target pass over nothing for section 0.
+    expect(
+      skippedSectionsWithShowRules(
+        state({ ...form, 'sections.0.nextStepRules.0.targetSectionKey': 'gone', 'sections.2.nextStepRules.0.targetSectionKey': 'a' }),
+        0,
+      ),
+    ).toEqual([])
+    // Several jumps and sections: each pair once, jumps in order, sections in form order.
+    expect(
+      skippedSectionsWithShowRules(
+        state({
+          ...form,
+          'sections.0.nextStepRules.1.targetSectionKey': 'c',
+          'sections.0.nextStepRules.2.targetSectionKey': 'd',
+          'sections.2.visibilityRules.rows.0.fieldKey': 'kind.fieldSet',
+        }),
+        0,
+      ),
+    ).toEqual([
+      { skipped: 'b', target: 'd' },
+      { skipped: 'c', target: 'd' },
+      { skipped: 'b', target: 'c' },
+    ])
   })
 })

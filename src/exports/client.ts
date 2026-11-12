@@ -2,6 +2,7 @@
 
 export { DateValueField } from '../admin/DateValueField.js'
 export { DefaultChoiceField } from '../admin/DefaultChoiceField.js'
+export { JumpSkipHint } from '../admin/JumpSkipHint.js'
 export { KeyField } from '../admin/KeyField.js'
 export { NoAnswerHint } from '../admin/NoAnswerHint.js'
 export { NumberDefaultField } from '../admin/NumberDefaultField.js'

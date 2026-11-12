@@ -81,8 +81,7 @@ export function nextStepRulesField(): Field {
     type: 'array',
     admin: {
       condition: (data) => data?.presentationMode === 'steps',
-      description:
-        'Step-by-step forms: the first matching rule picks the next section, else the next visible one.',
+      description: 'Skips every section in between, even ones whose show rules match.',
       initCollapsed: true,
     },
     fields: [
@@ -90,11 +89,28 @@ export function nextStepRulesField(): Field {
         name: 'targetSectionKey',
         type: 'text',
         admin: { components: { Field: 'payload-dynamic-forms/client#SectionTargetField' } },
-        label: 'Next section',
+        label: 'Jump to section',
         required: true,
       },
       matchField(),
       ruleRowsField(),
     ],
+    label: 'Jump to section when',
+    labels: { plural: 'Jumps', singular: 'Jump' },
+  }
+}
+
+/**
+ * Under the jumps: names each section a jump passes over that has its own show rules (the jump
+ * skips it whatever they say). Stores nothing; step-by-step forms only, like the jumps.
+ */
+export function jumpSkipHintField(): Field {
+  return {
+    name: 'jumpSkipHint',
+    type: 'ui',
+    admin: {
+      components: { Field: 'payload-dynamic-forms/client#JumpSkipHint' },
+      condition: (data) => data?.presentationMode === 'steps',
+    },
   }
 }
