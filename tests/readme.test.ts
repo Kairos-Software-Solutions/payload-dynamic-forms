@@ -97,10 +97,12 @@ describe('README', () => {
       const end = rest.search(/^## /m)
       return end === -1 ? rest : rest.slice(0, end)
     }
-    const first = sectionText('Changelog')
+    // 0.4.0 is present, right after the 0.5.0 entry.
+    const entries = sectionText('Changelog')
       .split('\n')
-      .find((line) => line.startsWith('- '))
-    expect(first!.slice(2)).toMatch(/^0\.4\.0\b/)
+      .filter((line) => line.startsWith('- '))
+    expect(entries[0].slice(2)).toMatch(/^0\.5\.0\b/)
+    expect(entries[1].slice(2)).toMatch(/^0\.4\.0\b/)
 
     const migrations = sectionText('Migrations')
     const note = migrations.slice(migrations.indexOf('**0.4.0.**'))
@@ -124,5 +126,79 @@ describe('README', () => {
     expect(options).toMatch(/at least two choices/)
     expect(options).toMatch(/Step by step/)
     expect(options).toMatch(/pick their field/)
+  })
+
+  test('readme has the 0.5.0 changelog and migration note', () => {
+    const sectionText = (name: string) => {
+      const start = readme.indexOf(`\n## ${name}\n`)
+      expect(start, name).toBeGreaterThan(-1)
+      const rest = readme.slice(start + name.length + 5)
+      const end = rest.search(/^## /m)
+      return end === -1 ? rest : rest.slice(0, end)
+    }
+    const first = sectionText('Changelog')
+      .split('\n')
+      .find((line) => line.startsWith('- '))
+    expect(first!.slice(2)).toMatch(/^0\.5\.0\b/)
+
+    const migrations = sectionText('Migrations')
+    expect(migrations).toContain('**0.5.0.**')
+    const note = migrations.slice(migrations.indexOf('**0.5.0.**'))
+    for (const words of [
+      'default_value',
+      '_locales',
+      'mode',
+      'value_format',
+      'display_style',
+      'send_another',
+      'wording_send_another',
+      'metadata_time_zone',
+      'carryOverDefault',
+      'forms-0.5.0-carry-over.txt',
+      'rollbackDefault',
+      'ADD COLUMN',
+      'snapshot JSON',
+      'payload generate:importmap',
+    ]) {
+      expect(note, words).toContain(words)
+    }
+    expect(note).toMatch(/SQLite and D1: hand-write the migration/)
+    expect(note).toMatch(/can rebuild tables/)
+    expect(note).toMatch(/deletes the child rows/)
+    expect(note).toMatch(/Postgres/)
+    expect(note).toMatch(/copy, the report file and the backfill run after the `ADD COLUMN` statements and before that `DROP COLUMN`/)
+    expect(note).toMatch(/defaults that don't fit are reported/)
+    expect(note).toMatch(/backfill/)
+    expect(note).toContain("mode = 'dayOnly'")
+    expect(note).toContain('send_another = 0')
+    expect(note).toMatch(/Send another words per locale/)
+    expect(note).toMatch(/\*\*Rollback:\*\* run the migration's `down\(\)` before re-pinning 0\.4\.0/)
+    expect(note).toMatch(/a 0\.5\.0 save clears the old `_locales` default/)
+  })
+
+  test('readme explains date modes, jumps and send another', () => {
+    const subsection = (name: string) => {
+      const start = readme.search(new RegExp(`^#{2,3} ${name}$`, 'm'))
+      expect(start, name).toBeGreaterThan(-1)
+      const rest = readme.slice(start).replace(/^.*\n/, '')
+      const end = rest.search(/^#{2,3} /m)
+      return end === -1 ? rest : rest.slice(0, end)
+    }
+    const dates = subsection('Date and time questions')
+    for (const words of ['**Date**', '**Date and time**', '**Time**', '`dayOnly`', '`dayAndTime`', '`timeOnly`', 'TIME_ZONE_FIELD', '`_tz`', '`timezone`']) {
+      expect(dates, words).toContain(words)
+    }
+    expect(dates).toMatch(/Date-only and time-only answers are never converted to UTC/)
+    const jumps = subsection('Jumps and show rules')
+    expect(jumps).toMatch(/a jump skips every section in between/)
+    expect(jumps).toMatch(/For an optional section, don't jump over it: use a show rule/)
+    const again = subsection('Send another')
+    expect(again).toMatch(/Turnstile tokens are single use/)
+    expect(again).toMatch(/needs a fresh token/)
+    const options = readme.slice(readme.indexOf('\n## Options\n'), readme.indexOf('\n## Attachments and storage order\n'))
+    const row = (name: string) => options.split('\n').find((line) => line.startsWith(`| \`${name}\``))
+    expect(row('timezone')).toMatch(/\| `UTC` \|/)
+    expect(row('metadata')).toContain('`metadata.timeZone` (default on)')
+    expect(row('metadata')).toMatch(/still used for that request/)
   })
 })

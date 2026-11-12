@@ -12,7 +12,7 @@ Forms for [Payload CMS](https://payloadcms.com) 3, installed with one plugin cal
 
 **What it does not do**
 
-- It ships **no visitor UI**: no visitor components and no styles. Each app renders its own form markup with the helpers from `payload-dynamic-forms/shared` (see [Rendering](#rendering)). Its only React code is a few admin components for the forms collection (key input, prefill lock, rule pick-lists, an editor hint) in `payload-dynamic-forms/client`, which the fields name by import-map path.
+- It ships **no visitor UI**: no visitor components and no styles. Each app renders its own form markup with the helpers from `payload-dynamic-forms/shared` (see [Rendering](#rendering)). Its only React code is a few admin components for the forms collection (key input, prefill lock, rule pick-lists, typed default pickers, row labels, editor hints) in `payload-dynamic-forms/client`, which the fields name by import-map path.
 - It does not wrap Payload's official form builder; both can run in one app (their slugs differ).
 
 ## Install
@@ -64,7 +64,8 @@ Every option is optional.
 | `beforeEmail` | – | `(message, { form, answers, locale, req }) => message`: wrap the html in your layout, add headers. `form` and `locale` are the ones the email was written in (`locale` is undefined without localization). |
 | `webhooks` | admin secrets on, signing optional | `{ signingSecret?, headers?, secretsInAdmin?, requireSignature? }`: webhook secrets and headers from your config (values or `({ form, req, webhook }) => …`), whether the admin has secret fields, and whether unsigned webhooks are refused (see [Webhook signature](#webhook-signature)). |
 | `access.isAdmin` | any logged-in user | Who reads and writes webhook secrets in the admin, updates or deletes submissions and resends. Prefer secrets from your config (`webhooks.signingSecret` from an env var, with `webhooks.secretsInAdmin: false`): admin secrets are stored as plain text in your database and its backups. |
-| `metadata` | `{ ip: false, userAgent: true }` | What a submission keeps about the request. |
+| `metadata` | `{ ip: false, userAgent: true, timeZone: true }` | What a submission keeps about the request. `metadata.timeZone` (default on) stores the visitor's IANA time zone (`_tz`) as `metadata.timeZone` and sends it in webhook bodies; with `timeZone: false` the zone is still used for that request (date checks, UTC conversion, snapshot and messages) but not stored, so webhooks carry none and a resend formats in `timezone`. |
+| `timezone` | `UTC` | IANA time zone for submissions that send no usable `_tz`: `today` date limits, UTC storage of Date and time answers, and showing UTC instants without a recorded zone. An unknown zone throws when the config is built. |
 
 ### Field types
 
@@ -72,10 +73,25 @@ Built in: heading and help text (display only), text, email, long text, number, 
 
 - **Keys** (question and section) are formatted to lower-case kebab-case as you type, and again on save.
 - **Prefill lock**, like Payload's slug field: a locked question's link parameter is its key (`?<key>=`), on screen and on save; Unlock to type your own parameter or leave it empty (no prefill). New questions start locked, except a single checkbox, which starts unlocked with no parameter so a link can't pre-tick a consent box. The lock is stored in the hidden `prefillFromKey` field.
-- **Rules** pick their field, and next-step rules their next section, from lists of the keys in the form as you edit it. A stored key the form no longer has stays visible as "(not in this form)", and saving names it.
+- **Defaults match the question type** (0.5.0): text and long text keep a translatable text default; email takes one address; number a number inside Min/Max (a number input); date a value in the question's mode, or Today/Now, from a picker; select and radio one of the question's own option values, checkbox group several, and choices from a collection one of the chosen items (pick-lists). Option values, numbers and dates are the same in every language. Saving refuses a default or a date limit that doesn't fit its question; an empty default is always fine. Renderers get number defaults as numbers.
+- **Rows** of every list (sections, questions, rules, jumps, options, emails, webhooks, headers) start open and are labelled by their own words: sections `key · title`, questions `type · key · label`, rules in words, options `label = value`, jumps `Jump to <section>`.
+- **Submissions** are records: their form, answers, snapshot, attachments, delivery log and metadata can't be edited through any API (field access); status and **Resend failed deliveries** stay editable by admins.
+- **Rules** pick their field, and next-step rules (jumps) their section, from lists of the keys in the form as you edit it. A stored key the form no longer has stays visible as "(not in this form)", and saving names it.
 - **Radio and select** need at least two choices: two typed options, or two picked items when the choices come from a collection (picking none, meaning every published item, is always fine). A checkbox group may have one option.
 - An optional radio question shows editors a hint to add a choice such as "None of the above" or "Not sure", because visitors can't clear a radio answer.
 - New forms start **Step by step**; "Single page" is still an option, and saved forms keep their mode.
+
+### Date and time questions
+
+A date question asks for one of three things (**Asks for**, Payload's names): **Date** (`dayOnly`, the default; questions saved before 0.5.0 are Date questions), **Date and time** (`dayAndTime`) or **Time** (`timeOnly`). Answers are checked and kept exactly as the browser's inputs send them: `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` (no zone) and `HH:MM`. Earliest and Latest are in the same format, or "Today" (not on Time questions); a Date and time question's Today limits mean 00:00 and 23:59 of that day.
+
+The renderer sends the visitor's IANA time zone as `_tz` (`TIME_ZONE_FIELD`, with `browserTimeZone()` from `/shared`); without a usable one the plugin's `timezone` option (default `UTC`) applies. The zone decides what "today" is for that visitor. A Date and time question can be **Stored as** "UTC instant (ISO 8601)" (`utc`): the submit endpoint stores `2026-11-12T19:30:00.000Z` for `2026-11-12T14:30` in New York. Date-only and time-only answers are never converted to UTC (converting a calendar date can move it a day).
+
+**In emails and messages** picks a display style: as stored (the default), Short, Medium or Long, through `Intl.DateTimeFormat` in the message's language (`formatAnswerDate`). Wall-time values never shift; a UTC instant is shown in the visitor's recorded zone followed by its name, e.g. `… (America/New_York)`. Webhooks carry the stored values, plus `submission.timeZone` (or `timeZone` in answers-only bodies) when a zone was recorded.
+
+### Jumps and show rules
+
+In step-by-step forms a section's **Jump to section when** rules (jumps) send the visitor straight to their target: a jump skips every section in between, even ones whose show rules match, as skip logic does in Google Forms, Microsoft Forms and Qualtrics. A hint under the jumps names each skipped section that has its own show rules. For an optional section, don't jump over it: use a show rule on that section instead, and let the visitor reach it in order.
 
 A new type:
 
@@ -130,6 +146,17 @@ Setting `webhooks.secretsInAdmin: false` also changes the schema: see [Secrets f
 - Questions saved with 0.3.0 keep their prefill parameter: an empty one still prefills nothing, a typed one keeps working. They show unlocked; click Lock to make one follow its key. Saved forms keep their presentation mode. A radio or select with one choice keeps working for visitors, but its form's next save is refused until a choice is added.
 - An update that resends `sections` without their row ids (a seed, a script) resets every question's lock to its default (locked) and so overwrites a custom prefill parameter with the key. Send the row ids, or `prefillFromKey` and `prefillParam` explicitly.
 - Rollback: pin 0.3.0 and run `payload generate:importmap` again (the 0.4.0 map imports `payload-dynamic-forms/client`). 0.3.0 ignores the new column; parameters written by locked saves keep prefilling as plain parameters.
+
+**0.5.0.** New nullable columns, a copy of the old defaults, a backfill and a new import map. No existing column changes type, default or not-null; nothing is renamed.
+
+- **Columns added** (no default), in each table and its `_v` twin: `default_value` (text) in the email, number, date, select and radio block tables (apps with localization; without it the column exists already); `mode`, `value_format` and `display_style` in the date block table; `send_another` in the forms table; `wording_send_another` in the forms `_locales` table; `metadata_time_zone` in the submissions table.
+- **The copy.** With localization, the 0.4.0 default of those five types lives in `<block>_locales.default_value`, per language, and 0.5.0 reads the block table's new `default_value`. In the migration's `up()`, read each question's old defaults (and its option values, Min/Max and source), call `carryOverDefault` from `payload-dynamic-forms` and write the value it returns. It carries the default-language value only when it fits the 0.5.0 rules; defaults that don't fit are reported, not carried: print the report and keep it in `forms-0.5.0-carry-over.txt`. The old `_locales` column stays, but every 0.5.0 save of a form clears its old `_locales` default.
+- **The backfill.** Payload fills a default only for missing values, not `NULL`, so `up()` also writes the defaults into existing rows: `mode = 'dayOnly'`, `value_format = 'local'`, `display_style = 'asStored'` on date rows, `send_another = 0` (`false` on Postgres) on forms, and the Send another words per locale in `wording_send_another` (the plugin's `words.sendAnother`, or each language's own words). Same in the `_v` tables.
+- **SQLite and D1: hand-write the migration.** A generated one can rebuild tables, and on D1 a rebuild deletes the child rows. Run `payload migrate:create`, keep its snapshot JSON, and replace its SQL with `ALTER TABLE <table> ADD COLUMN <column> <type>` for the columns above, then the copy and the backfill.
+- **Postgres:** the generated migration adds the columns and drops `default_value` from the `_locales` tables. Edit it so the copy, the report file and the backfill run after the `ADD COLUMN` statements and before that `DROP COLUMN` (or delete the drops).
+- Run `payload generate:importmap` after upgrading (new admin components).
+- Old forms whose checkbox-group default, text default or a date limit doesn't fit their question can't be saved until fixed; visitors are unaffected (a default that doesn't fit starts empty).
+- **Rollback:** run the migration's `down()` before re-pinning 0.4.0: a 0.5.0 save clears the old `_locales` default, so a re-pin alone loses the defaults. In `down()`, call `rollbackDefault` per question and write its value back into the default-language `_locales.default_value` row and its Earliest and Latest into the date row (it drops `today`, times and date-times, which 0.4.0 can't read, and reports them: keep the report in `forms-0.5.0-rollback.txt`), then drop the added columns. Then pin 0.4.0 and run `payload generate:importmap` again. Answers stored as UTC instants stay as stored.
 
 ## Switching off
 
@@ -331,6 +358,12 @@ export function MinimalForm({ form, searchParams }: Props) {
 }
 ```
 
+**Time zone and Today.** Add the visitor's zone to the submit body as `[TIME_ZONE_FIELD]: browserTimeZone()` (`_tz`) so date limits and UTC storage use the visitor's clock. Call `initialAnswers` in the browser (as the example does in `useState`), so a "Today" default resolves to the visitor's day; `resolveDateLimit(field, 'min' | 'max')` gives an input's `min`/`max` for Today limits. Date questions carry `mode`, `valueFormat` and `displayStyle`: render a `date`, `datetime-local` or `time` input.
+
+### Send another
+
+A form whose success type is "Show the success words" can tick **Show a 'Send another' button**; the public form then has `sendAnother: true` and the button's words in `wording.sendAnother` ("Send another"). On click, the renderer resets the answers with `initialAnswers(form, searchParams)` and goes back to step 1, without a reload. Turnstile tokens are single use: a renderer using Turnstile needs a fresh token for the next send (reset the widget).
+
 For file uploads, post `multipart/form-data` instead of JSON (one entry per file under the field key). For Turnstile, render the widget inside the form; its token goes in the `cf-turnstile-response` field.
 
 **Draft previews.** In draft mode, pass the logged-in user and `draft: true`:
@@ -492,6 +525,7 @@ yarn dev             # the dev app in dev/ (copy dev/.env.example to dev/.env)
 
 ## Changelog
 
+- 0.5.0: field standards. Defaults match the question type (email, number, date, choice pick-lists; not translated) and are checked on save; date questions ask for a date, a date and time, or a time, with Today/Now, the visitor's time zone (`_tz`, new `timezone` and `metadata.timeZone` options), optional UTC storage and display styles in messages; submission records are read-only; jumps labelled "Jump to section when" with a hint when they skip a section that has show rules; every list starts open, with row labels; an opt-in "Send another" button. New `carryOverDefault` and `rollbackDefault` for the migration. Migration and `payload generate:importmap` needed (see [Migrations](#migrations)).
 - 0.4.0: admin field conventions. Rules last in each question, labelled "Rules", "Field" and "Next section"; checkboxes level with the inputs beside them; keys formatted as you type; prefill lock like the slug field (new questions prefill by their key, single checkboxes start unlocked); pick-lists for rule keys and next sections; radio and select need two choices; new forms start step by step; a hint under optional radio questions. New `payload-dynamic-forms/client` entry with the admin components and the peers `@payloadcms/ui` and `react`. Migration and `payload generate:importmap` needed (see [Migrations](#migrations)).
 - 0.3.0: importable package (entry points in `dist/`), email subject and body per language (visitor copy in the visitor's language, team email in the default language), draft read for previews. Migration needed with localization (see [Migrations](#migrations)).
 
