@@ -5,7 +5,7 @@ import path from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 
 import { LEVEL_CHECKBOX_STYLE } from '../src/collections/adminStyle.js'
-import { OPERATORS } from '../src/exports/shared.js'
+import { DEFAULT_WORDS, OPERATORS, WORD_KEYS } from '../src/exports/shared.js'
 import { formBlock, formsPlugin, resolveOptions } from '../src/index.js'
 import fieldPaths030 from './fixtures/field-paths-0.3.0.json' with { type: 'json' }
 
@@ -894,5 +894,72 @@ describe('plugin config', () => {
     })
     expect(paths.filter((p) => p.endsWith('#QuestionLabel')).length).toBe(blocks.length)
     expect(paths.filter((p) => p.endsWith('#RowLabel')).length).toBeGreaterThan(10)
+  })
+
+  test('send another is an opt-in under the success words', () => {
+    const forms = collection(formsPlugin({})(baseConfig()), 'custom-forms')
+    let words: Field[] = []
+    walk(forms.fields, (field, p) => {
+      if (field.type === 'tabs') {
+        words = field.tabs.find((tab) => tab.label === 'Words')!.fields
+      }
+      void p
+    })
+    const names = words.map((f) => ('name' in f ? f.name : f.type))
+    expect(names.indexOf('sendAnother')).toBe(names.indexOf('successType') + 1)
+    const box = words[names.indexOf('sendAnother')] as {
+      admin: { condition: (data: unknown, sibling: unknown) => boolean }
+      defaultValue: unknown
+      label: string
+      type: string
+    }
+    expect(box.type).toBe('checkbox')
+    expect(box.label).toBe("Show a 'Send another' button")
+    expect(box.admin.condition({}, { successType: 'message' })).toBe(true)
+    expect(box.admin.condition({}, { successType: 'redirect' })).toBe(false)
+    expect(typeof box.defaultValue).toBe('function')
+    expect((box.defaultValue as (args: unknown) => unknown)({})).toBe(false)
+    const wording = named<{ fields: Field[] }>(words, 'wording')
+    const word = named<{ defaultValue: unknown; localized?: boolean; type: string }>(wording.fields, 'sendAnother')
+    expect(word.type).toBe('text')
+    expect(word.localized).toBe(true)
+    expect((word.defaultValue as (args: unknown) => unknown)({})).toBe('Send another')
+    // The plugin's words option sets it, like the other words.
+    const custom = collection(formsPlugin({ words: { sendAnother: 'Otra vez' } })(baseConfig()), 'custom-forms')
+    let customWord: { defaultValue: (args: unknown) => unknown } | undefined
+    walk(custom.fields, (field, p) => {
+      if (p === 'wording.sendAnother') {
+        customWord = field as never
+      }
+    })
+    expect(customWord!.defaultValue({})).toBe('Otra vez')
+  })
+
+  test('new 0.5.0 fields have function defaults', () => {
+    const config = formsPlugin({})(baseConfig())
+    const date = sectionBlocks(config).find((b) => b.slug === 'date')!
+    for (const name of ['mode', 'valueFormat', 'displayStyle']) {
+      expect(typeof named<{ defaultValue: unknown }>(date.fields, name).defaultValue, name).toBe('function')
+    }
+    const defaults = new Map<string, unknown>()
+    walk(collection(config, 'custom-forms').fields, (field, p) => {
+      if (p === 'sendAnother' || p.startsWith('wording.')) {
+        defaults.set(p, (field as { defaultValue?: unknown }).defaultValue)
+      }
+    })
+    expect(typeof defaults.get('sendAnother')).toBe('function')
+    expect(typeof defaults.get('wording.sendAnother')).toBe('function')
+    // Every other word keeps its static default (no column default changes).
+    for (const key of WORD_KEYS.filter((k) => k !== 'sendAnother')) {
+      expect(defaults.get(`wording.${key}`), key).toBe(DEFAULT_WORDS[key])
+    }
+    // The submission's new time zone field adds none either.
+    let zone: { defaultValue?: unknown } | undefined
+    walk(collection(config, 'custom-form-submissions').fields, (field, p) => {
+      if (p === 'metadata.timeZone') {
+        zone = field as never
+      }
+    })
+    expect(zone!.defaultValue).toBeUndefined()
   })
 })

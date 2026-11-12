@@ -52,6 +52,12 @@ const contactSections = [
   ]),
 ]
 
+const hook = { webhooks: [{ label: 'Hook', url: 'https://hooks.example.com/dates' }] }
+
+async function readSub(target: App, id: number | string): Promise<Doc> {
+  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+}
+
 describe('public read', () => {
   test('public read resolves choices and words and hides delivery', async () => {
     const topic = await app.payload.create({
@@ -101,7 +107,53 @@ describe('public read', () => {
       }
     }
   })
+
+  test('public form says when to offer send another', async () => {
+    const message = await createForm(app, { sections: contactSections, sendAnother: true, successType: 'message', wording: { sendAnother: 'One more' } })
+    const redirect = await createForm(app, {
+      sections: contactSections,
+      sendAnother: true,
+      successRedirectURL: 'https://example.com/thanks',
+      successType: 'redirect',
+      wording: { sendAnother: 'One more' },
+    })
+    const legacy = await createForm(app, { sections: contactSections, sendAnother: true, successType: 'message' })
+    for (const form of [message, redirect]) {
+      await translateForm(app, form.id, 'es', (doc) => {
+        doc.title = 'Formulario'
+        for (const f of doc.sections[0].fields) {
+          f.words.label = `${String(f.words.label)} (es)`
+        }
+        doc.wording.sendAnother = 'Otra más'
+      })
+    }
+    // As a 0.4.0 form reads if a site skipped the backfill: both columns NULL, every table.
+    const db = app.payload.db as unknown as { drizzle: { run: (q: unknown) => Promise<unknown> } }
+    await db.drizzle.run(sql`UPDATE custom_forms SET send_another = NULL WHERE id = ${legacy.id}`)
+    await db.drizzle.run(sql`UPDATE _custom_forms_v SET version_send_another = NULL WHERE parent_id = ${legacy.id}`)
+    await db.drizzle.run(sql`UPDATE custom_forms_locales SET wording_send_another = NULL WHERE _parent_id = ${legacy.id}`)
+    await db.drizzle.run(
+      sql`UPDATE _custom_forms_v_locales SET version_wording_send_another = NULL WHERE _parent_id IN (SELECT id FROM _custom_forms_v WHERE parent_id = ${legacy.id})`,
+    )
+    const stored = (await app.payload.findByID({ id: legacy.id, collection: 'custom-forms' as never, depth: 0, overrideAccess: true })) as Doc
+    expect(stored.sendAnother ?? null).toBeNull()
+    expect(stored.wording.sendAnother ?? null).toBeNull()
+
+    const read = async (slug: string, locale: 'en' | 'es') => (await getPublicForm(app.payload, slug, { locale }))!
+    expect((await read(message.slug, 'en')).sendAnother).toBe(true)
+    expect((await read(redirect.slug, 'en')).sendAnother).toBe(false)
+    expect((await read(legacy.slug, 'en')).sendAnother).toBe(false)
+    expect((await read(message.slug, 'en')).wording.sendAnother).toBe('One more')
+    expect((await read(message.slug, 'es')).wording.sendAnother).toBe('Otra más')
+    expect((await read(redirect.slug, 'es')).wording.sendAnother).toBe('Otra más')
+    expect((await read(legacy.slug, 'en')).wording.sendAnother).toBe('Send another')
+    expect((await read(legacy.slug, 'es')).wording.sendAnother).toBe('Send another')
+    // The REST read gives the same.
+    const res = await app.fetch(`/custom-forms/public/${message.slug}`)
+    expect(((await res.json()) as Doc).sendAnother).toBe(true)
+  })
 })
+
 
 describe('submit', () => {
   test('unknown or all locale reads and stores the default locale', async () => {
@@ -356,12 +408,7 @@ describe('submit', () => {
       expect(message).toMatch(/^M-/)
     }
   })
-})
 
-describe('date answers', () => {
-  const hook = { webhooks: [{ label: 'Hook', url: 'https://hooks.example.com/dates' }] }
-  const readSub = async (target: App, id: number | string) =>
-    (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
 
   test('date answers are stored as the browser sent them', async () => {
     const form = await createForm(app, {
@@ -456,6 +503,7 @@ describe('date answers', () => {
     expect('timeZone' in hookBodies[0].submission).toBe(false)
   })
 })
+
 
 // Keep the dev defaults visible to readers of this file.
 void devPluginOptions

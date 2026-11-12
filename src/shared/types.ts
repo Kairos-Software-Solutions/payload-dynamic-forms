@@ -133,6 +133,8 @@ export type FormWords = {
   required: string
   securityCheckFailed: string
   send: string
+  /** The "Send another" button after a success message (0.5.0). */
+  sendAnother: string
   sending: string
   sent: string
   stepProgress: string
@@ -160,6 +162,11 @@ export type PublicForm = {
   intakeState: IntakeState
   presentationMode: PresentationMode
   sections: FormSection[]
+  /**
+   * True when the success words should offer a "Send another" button (message success type with
+   * the box ticked). The renderer resets the answers with `initialAnswers` and goes back to step 1.
+   */
+  sendAnother: boolean
   slug: string
   /** True when the server runs the honeypot, Turnstile and rate limit for this form. */
   spamChecks: boolean

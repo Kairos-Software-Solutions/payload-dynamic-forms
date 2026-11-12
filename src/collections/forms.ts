@@ -33,7 +33,9 @@ function wordingField(options: ResolvedOptions): Field {
           name: key,
           type: key === 'success' || key === 'closed' ? 'textarea' : 'text',
           admin: WORD_HELP[key] ? { description: WORD_HELP[key] } : undefined,
-          defaultValue: options.words[key],
+          // New in 0.5.0: a function default, so the column gets no database default. The other
+          // words keep their static defaults (changing those would change column defaults).
+          defaultValue: key === 'sendAnother' ? () => options.words.sendAnother : options.words[key],
           localized: true,
         }) as Field,
     ),
@@ -251,6 +253,7 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
       intakeState: true,
       presentationMode: true,
       sections: true,
+      sendAnother: true,
       successRedirectURL: true,
       successType: true,
       title: true,
@@ -343,6 +346,16 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
                   { label: 'Show the success words', value: 'message' },
                   { label: 'Redirect', value: 'redirect' },
                 ],
+              },
+              {
+                name: 'sendAnother',
+                type: 'checkbox',
+                admin: {
+                  condition: (_d, sibling) => sibling?.successType === 'message',
+                  description: 'After the success words, offer to fill the form in again (answers reset to their defaults).',
+                },
+                defaultValue: () => false,
+                label: "Show a 'Send another' button",
               },
               {
                 name: 'successRedirectURL',

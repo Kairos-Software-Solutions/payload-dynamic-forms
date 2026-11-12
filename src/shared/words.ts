@@ -19,6 +19,8 @@ export const DEFAULT_WORDS: Readonly<FormWords> = Object.freeze({
   required: '{{label}} is required.',
   securityCheckFailed: 'The security check failed. Please try again.',
   send: 'Send',
+  /** The button that starts the form again after a success message (when the form offers it). */
+  sendAnother: 'Send another',
   sending: 'Sending…',
   sent: 'Sent',
   stepProgress: 'Step {{current}} of {{total}}',

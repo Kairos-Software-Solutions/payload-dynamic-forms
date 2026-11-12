@@ -56,6 +56,7 @@ type RawForm = {
   intakeState?: 'closed' | 'open' | null
   presentationMode?: 'singlePage' | 'steps' | null
   sections?: FormSection[] | null
+  sendAnother?: boolean | null
   slug?: null | string
   successRedirectURL?: null | string
   successType?: 'message' | 'redirect' | null
@@ -214,6 +215,7 @@ async function buildLoaded(
     intakeState: raw.intakeState === 'closed' ? 'closed' : 'open',
     presentationMode: raw.presentationMode === 'steps' ? 'steps' : 'singlePage',
     sections,
+    sendAnother: raw.successType !== 'redirect' && raw.sendAnother === true,
     spamChecks: delivery.store || sends,
     successRedirectURL: raw.successType === 'redirect' ? raw.successRedirectURL || null : null,
     successType: raw.successType === 'redirect' ? 'redirect' : 'message',
