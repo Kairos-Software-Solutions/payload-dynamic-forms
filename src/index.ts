@@ -145,3 +145,5 @@ export type {
   SubmitResult,
 } from './shared/types.js'
 export type { CollectionOverride, FieldTypeDefinition, FormsPluginOptions, OptionSource, ResolvedOptions } from './types.js'
+export { type CarryOverArgs, carryOverDefault, type CarryOverResult } from './upgrade/carryOverDefault.js'
+export { type RollbackArgs, rollbackDefault, type RollbackResult } from './upgrade/rollbackDefault.js'

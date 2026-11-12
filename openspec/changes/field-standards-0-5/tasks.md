@@ -28,7 +28,7 @@
 
 ## 7. Carry-over helper
 
-- [ ] 7.1 Design 18: `src/upgrade/carryOverDefault.ts` and `src/upgrade/rollbackDefault.ts` (pure, reusing the 0.5.0 checks of 1.1, 1.4 and 2.1, no database or Payload imports), both exported by name from `src/index.ts`. New tests/carry-over.test.ts › "0.4.0 defaults that fit are carried over", "0.4.0 defaults that don't fit are reported, not carried", "0.5.0 values are put back in a form 0.4.0 can read". Covers "0.4.0 defaults that fit are carried over", "0.4.0 defaults that don't fit are reported, not carried", "0.5.0 values are put back for 0.4.0". Done when `yarn vitest run tests/carry-over.test.ts tests/workers-safe.test.ts` passes.
+- [x] 7.1 Design 18: `src/upgrade/carryOverDefault.ts` and `src/upgrade/rollbackDefault.ts` (pure, reusing the 0.5.0 checks of 1.1, 1.4 and 2.1, no database or Payload imports), both exported by name from `src/index.ts`. New tests/carry-over.test.ts › "0.4.0 defaults that fit are carried over", "0.4.0 defaults that don't fit are reported, not carried", "0.5.0 values are put back in a form 0.4.0 can read". Covers "0.4.0 defaults that fit are carried over", "0.4.0 defaults that don't fit are reported, not carried", "0.5.0 values are put back for 0.4.0". Done when `yarn vitest run tests/carry-over.test.ts tests/workers-safe.test.ts` passes.
 
 ## 8. Package and docs
 
