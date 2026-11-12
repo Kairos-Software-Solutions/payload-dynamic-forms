@@ -1,6 +1,7 @@
 import type { Field } from 'payload'
 
 import { MATCH_MODES, OPERATORS } from '../shared/operators.js'
+import { rowLabel } from './rowLabels.js'
 
 /** One rule row: field key (or `key.attribute`), operator from the shared list, value. */
 export function ruleRowFields(): Field[] {
@@ -44,7 +45,7 @@ function ruleRowsField(): Field {
   return {
     name: 'rows',
     type: 'array',
-    admin: { initCollapsed: true },
+    admin: { components: { RowLabel: rowLabel('rule') }, initCollapsed: false },
     fields: ruleRowFields(),
     label: 'Rules',
     labels: { plural: 'Rules', singular: 'Rule' },
@@ -80,9 +81,10 @@ export function nextStepRulesField(): Field {
     name: 'nextStepRules',
     type: 'array',
     admin: {
+      components: { RowLabel: rowLabel('jump') },
       condition: (data) => data?.presentationMode === 'steps',
       description: 'Skips every section in between, even ones whose show rules match.',
-      initCollapsed: true,
+      initCollapsed: false,
     },
     fields: [
       {

@@ -701,7 +701,7 @@ describe('plugin config', () => {
   test('admin component paths name client exports', () => {
     const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/exports/client.ts'), 'utf8')
     expect(source.split('\n')[0]).toMatch(/^['"]use client['"]$/)
-    const exported = new Set([...source.matchAll(/export \{ (\w+) \}/g)].map((m) => m[1]))
+    const exported = new Set([...source.matchAll(/export \{ ([\w, ]+) \}/g)].flatMap((m) => m[1].split(', ')))
     expect([...exported].sort()).toEqual([
       'DateValueField',
       'DefaultChoiceField',
@@ -710,6 +710,8 @@ describe('plugin config', () => {
       'NoAnswerHint',
       'NumberDefaultField',
       'PrefillParamField',
+      'QuestionLabel',
+      'RowLabel',
       'RuleFieldKeyField',
       'SectionTargetField',
     ])
@@ -776,5 +778,121 @@ describe('plugin config', () => {
     }
     // The collection's own update stays admin-only (status and the resend tick).
     expect(typeof subs.access!.update).toBe('function')
+  })
+
+  test('every plugin list starts open', () => {
+    const config = formsPlugin({ attachments: {}, fields: { fileUpload: true } })(baseConfig())
+    const lists = new Map<string, unknown>()
+    for (const slug of ['custom-forms', 'custom-form-submissions']) {
+      walk(collection(config, slug).fields, (field, p) => {
+        if (field.type === 'array' || field.type === 'blocks') {
+          const initCollapsed = (field.admin as { initCollapsed?: unknown } | undefined)?.initCollapsed
+          expect(initCollapsed, `${slug}:${p}`).not.toBe(true)
+          lists.set(`${slug}:${p}`, initCollapsed)
+        }
+      })
+    }
+    const open = [
+      'custom-forms:sections',
+      'custom-forms:sections.fields',
+      'custom-forms:sections.visibilityRules.rows',
+      'custom-forms:sections.fields.text.visibilityRules.rows',
+      'custom-forms:sections.nextStepRules',
+      'custom-forms:sections.nextStepRules.rows',
+      'custom-forms:delivery.emails',
+      'custom-forms:delivery.webhooks',
+      'custom-forms:delivery.webhooks.headers',
+      'custom-forms:sections.fields.select.options',
+      'custom-forms:sections.fields.radio.options',
+      'custom-forms:sections.fields.checkboxGroup.options',
+      'custom-form-submissions:deliveryLog',
+      'custom-form-submissions:snapshot',
+    ]
+    for (const path of open) {
+      expect(lists.has(path), path).toBe(true)
+      expect(lists.get(path), path).toBe(false)
+    }
+    // Every array and blocks field the plugin adds says so (no list is left to the default).
+    for (const [path, value] of lists) {
+      expect(value, path).toBe(false)
+    }
+  })
+
+  test('rows name their row label components', () => {
+    const config = formsPlugin({
+      fields: { fileUpload: true, rating: { block: { slug: 'rating', fields: [{ name: 'rating', type: 'number' }], labels: { plural: 'Ratings', singular: 'Rating' } } } },
+    })(baseConfig())
+    type Component = { clientProps?: Record<string, unknown>; path: string } | string
+    const rowLabelAt = (wanted: string): Component | undefined => {
+      let found: Component | undefined
+      walk(collection(config, 'custom-forms').fields, (field, p) => {
+        if (p === wanted && field.type === 'array') {
+          found = (field.admin as { components?: { RowLabel?: Component } } | undefined)?.components?.RowLabel
+        }
+      })
+      return found
+    }
+    const kinds: Record<string, string | undefined> = {
+      'delivery.emails': undefined,
+      'delivery.webhooks': undefined,
+      'delivery.webhooks.headers': undefined,
+      sections: 'section',
+      'sections.fields.radio.options': 'option',
+      'sections.fields.select.options': 'option',
+      'sections.fields.text.visibilityRules.rows': 'rule',
+      'sections.nextStepRules': 'jump',
+      'sections.nextStepRules.rows': 'rule',
+      'sections.visibilityRules.rows': 'rule',
+    }
+    for (const [p, kind] of Object.entries(kinds)) {
+      const component = rowLabelAt(p)
+      expect(component, p).toBeDefined()
+      const value = typeof component === 'string' ? component : component!.path
+      expect(value, p).toBe('payload-dynamic-forms/client#RowLabel')
+      expect(typeof component === 'string' ? undefined : component!.clientProps?.kind, p).toBe(kind)
+    }
+    const blocks = sectionBlocks(config)
+    expect(blocks.map((b) => b.slug)).toContain('rating')
+    for (const block of blocks) {
+      const label = block.admin?.components?.Label as { clientProps: { typeLabel: string }; path: string } | undefined
+      expect(label?.path, block.slug).toBe('payload-dynamic-forms/client#QuestionLabel')
+      expect(label?.clientProps.typeLabel, block.slug).toBe(block.labels?.singular)
+    }
+    expect((blocks.find((b) => b.slug === 'date')!.admin!.components!.Label as { clientProps: { typeLabel: string } }).clientProps.typeLabel).toBe('Date')
+    // A block with its own Label keeps it.
+    const own = sectionBlocks(
+      formsPlugin({ fields: { stars: { block: { slug: 'stars', admin: { components: { Label: '/app/StarsLabel#StarsLabel' } }, fields: [] } } } })(baseConfig()),
+    ).find((b) => b.slug === 'stars')!
+    expect(own.admin!.components!.Label).toBe('/app/StarsLabel#StarsLabel')
+    // Every admin component path in the collection names an export of the client entry.
+    const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/exports/client.ts'), 'utf8')
+    const exported = new Set([...source.matchAll(/export \{ ([\w, ]+) \}/g)].flatMap((m) => m[1].split(', ')))
+    const paths: string[] = []
+    const collect = (value: unknown, where: string) => {
+      if (value === undefined) {
+        return
+      }
+      const p = typeof value === 'string' ? value : String((value as { path?: string }).path)
+      if (p === '@payloadcms/next/client#SlugField') {
+        return
+      }
+      paths.push(p)
+      expect(p, where).toMatch(/^payload-dynamic-forms\/client#\w+$/)
+      expect(exported.has(p.split('#')[1]), where).toBe(true)
+    }
+    walk(collection(config, 'custom-forms').fields, (field, p) => {
+      for (const [slot, value] of Object.entries((field as { admin?: { components?: Record<string, unknown> } }).admin?.components || {})) {
+        collect(value, `${p}.${slot}`)
+      }
+      if (field.type === 'blocks') {
+        for (const block of field.blocks) {
+          for (const [slot, value] of Object.entries(block.admin?.components || {})) {
+            collect(value, `${p}.${block.slug}.${slot}`)
+          }
+        }
+      }
+    })
+    expect(paths.filter((p) => p.endsWith('#QuestionLabel')).length).toBe(blocks.length)
+    expect(paths.filter((p) => p.endsWith('#RowLabel')).length).toBeGreaterThan(10)
   })
 })

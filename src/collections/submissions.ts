@@ -53,7 +53,7 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
         name: 'snapshot',
         type: 'array',
         access: { update: nobodyField },
-        admin: { description: 'Each answer as worded when it was sent.', readOnly: true },
+        admin: { description: 'Each answer as worded when it was sent.', initCollapsed: false, readOnly: true },
         fields: [
           { name: 'sectionKey', type: 'text' },
           { name: 'sectionTitle', type: 'text' },
@@ -78,7 +78,7 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
         name: 'deliveryLog',
         type: 'array',
         access: { update: nobodyField },
-        admin: { initCollapsed: true, readOnly: true },
+        admin: { initCollapsed: false, readOnly: true },
         fields: [
           {
             name: 'kind',

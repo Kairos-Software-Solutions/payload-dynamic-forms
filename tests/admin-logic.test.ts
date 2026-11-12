@@ -11,6 +11,7 @@ import {
   splitStoredRuleKey,
 } from '../src/admin/formKeys.js'
 import { caretAfterFormat, formatKeyInput } from '../src/admin/keys.js'
+import { formRowText, jumpRowText, optionRowText, questionRowText, ruleRowText, sectionRowText } from '../src/admin/rowText.js'
 import { normalizeKey } from '../src/shared/rules.js'
 
 const state = (values: Record<string, unknown>) => Object.fromEntries(Object.entries(values).map(([path, value]) => [path, { value }]))
@@ -184,5 +185,29 @@ describe('admin logic', () => {
       { skipped: 'c', target: 'd' },
       { skipped: 'b', target: 'c' },
     ])
+  })
+
+  test("row texts read the row's own values", () => {
+    expect(sectionRowText({ key: 'contact', title: 'Your details' }, 0)).toBe('contact · Your details')
+    expect(sectionRowText({ key: 'contact' }, 0)).toBe('contact')
+    expect(sectionRowText({ title: 'Your details' }, 0)).toBe('Your details')
+    expect(questionRowText({ fieldKey: 'full-name', words: { label: 'Full name' } }, 0, 'Text')).toBe('Text · full-name · Full name')
+    expect(questionRowText({ heading: 'About you' }, 0, 'Heading')).toBe('Heading · About you')
+    expect(questionRowText({ blockType: 'helpText', body: 'A few questions.' }, 0, 'Help text')).toBe('Help text · A few questions.')
+    expect(questionRowText({ fieldKey: 'start' }, 0, 'Date')).toBe('Date · start')
+    expect(ruleRowText({ fieldKey: 'need', operator: 'equals', value: 'quote' }, 0)).toBe('need equals quote')
+    expect(ruleRowText({ fieldKey: 'email', operator: 'hasValue' }, 0)).toBe('email has a value')
+    expect(ruleRowText({ fieldKey: 'email', operator: 'notHasValue', value: 'left over' }, 0)).toBe('email has no value')
+    expect(optionRowText({ label: 'Quote', value: 'quote' }, 0)).toBe('Quote = quote')
+    expect(jumpRowText({ targetSectionKey: 'details' }, 0)).toBe('Jump to details')
+    expect(formRowText({ label: 'Team' }, 0)).toBe('Team')
+    const long = 'x'.repeat(80)
+    expect(formRowText({ title: long }, 0)).toBe(`${'x'.repeat(72)}…`)
+    expect(sectionRowText({ key: 'k', title: long }, 0)).toBe(`${`k · ${long}`.slice(0, 72)}…`)
+    for (const fn of [formRowText, sectionRowText, ruleRowText, optionRowText, jumpRowText]) {
+      expect(fn({}, 2), fn.name).toBe('Row 3')
+    }
+    expect(questionRowText({}, 2)).toBe('Row 3')
+    expect(formRowText(undefined, 0)).toBe('Row 1')
   })
 })

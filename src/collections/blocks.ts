@@ -5,6 +5,7 @@ import type { FieldTypeDefinition, FormsPluginOptions, OptionSource } from '../t
 
 import { dateFormatWords, dateMode, isDateLimitValue } from '../shared/dates.js'
 import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
+import { questionLabel, rowLabel } from './rowLabels.js'
 import { ruleGroupField } from './ruleFields.js'
 
 const CLIENT = 'payload-dynamic-forms/client'
@@ -247,9 +248,11 @@ function choiceFields(sources: Record<string, OptionSource>, { minOptions }: { m
   const typedOptions: Field = {
     name: 'options',
     type: 'array',
-    admin: sourceKeys.length
-      ? { condition: (_data, sibling) => !sibling?.optionsFrom || sibling.optionsFrom === 'typed' }
-      : {},
+    admin: {
+      components: { RowLabel: rowLabel('option') },
+      initCollapsed: false,
+      ...(sourceKeys.length ? { condition: (_data, sibling) => !sibling?.optionsFrom || sibling.optionsFrom === 'typed' } : {}),
+    },
     ...(minOptions ? { minRows: minOptions } : {}),
     fields: [
       {
@@ -486,5 +489,22 @@ export function buildFieldBlocks(
       validate: entry.validate,
     }
   }
-  return { blocks, fieldTypes }
+  return { blocks: blocks.map(withQuestionLabel), fieldTypes }
+}
+
+/** The block's singular label when it is plain text, else its slug. */
+function typeLabelOf(block: Block): string {
+  const singular = block.labels?.singular
+  return typeof singular === 'string' && singular.trim() ? singular : block.slug
+}
+
+/** Every question block gets `QuestionLabel`, unless it sets a Label of its own. */
+function withQuestionLabel(block: Block): Block {
+  if (block.admin?.components?.Label) {
+    return block
+  }
+  return {
+    ...block,
+    admin: { ...block.admin, components: { ...block.admin?.components, Label: questionLabel(typeLabelOf(block)) } },
+  }
 }

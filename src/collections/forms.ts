@@ -9,6 +9,7 @@ import { validateFormBeforeSave } from '../hooks/validateForm.js'
 import { DEFAULT_WHATSAPP_ROW_TEMPLATE, DEFAULT_WHATSAPP_TEMPLATE } from '../shared/whatsapp.js'
 import { WORD_KEYS } from '../shared/words.js'
 import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
+import { ROW_LABEL, rowLabel } from './rowLabels.js'
 import { jumpSkipHintField, nextStepRulesField, ruleGroupField } from './ruleFields.js'
 
 const WORD_HELP: Record<string, string> = {
@@ -47,7 +48,7 @@ function secretFields(secret: FieldAccess): Field[] {
       name: 'headers',
       type: 'array',
       access: { create: secret, read: secret, update: secret },
-      admin: { description: 'Secret headers (admins only).', initCollapsed: true },
+      admin: { components: { RowLabel: ROW_LABEL }, description: 'Secret headers (admins only).', initCollapsed: false },
       fields: [
         {
           type: 'row',
@@ -89,7 +90,7 @@ function deliveryField(options: ResolvedOptions): Field {
       {
         name: 'emails',
         type: 'array',
-        admin: { initCollapsed: true },
+        admin: { components: { RowLabel: ROW_LABEL }, initCollapsed: false },
         fields: [
           {
             type: 'row',
@@ -160,7 +161,7 @@ function deliveryField(options: ResolvedOptions): Field {
       {
         name: 'webhooks',
         type: 'array',
-        admin: { initCollapsed: true },
+        admin: { components: { RowLabel: ROW_LABEL }, initCollapsed: false },
         fields: [
           {
             type: 'row',
@@ -296,7 +297,7 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
               {
                 name: 'sections',
                 type: 'array',
-                admin: { initCollapsed: true },
+                admin: { components: { RowLabel: rowLabel('section') }, initCollapsed: false },
                 fields: [
                   {
                     type: 'row',
@@ -318,7 +319,7 @@ export function formsCollection(options: ResolvedOptions, blocks: Block[], endpo
                   {
                     name: 'fields',
                     type: 'blocks',
-                    admin: { initCollapsed: true },
+                    admin: { initCollapsed: false },
                     blocks,
                   },
                   ruleGroupField('visibilityRules', 'Show section when'),
