@@ -15,12 +15,12 @@ export function resendEndpoint(options: ResolvedOptions): Endpoint {
       const id = String(req.routeParams?.id || '')
       let submission: SubmissionDoc
       try {
-        submission = (await req.payload.findByID({
+        submission = await req.payload.findByID({
           id,
           collection: options.slugs.submissions as never,
           depth: 0,
           overrideAccess: true,
-        })) as unknown as SubmissionDoc
+        })
       } catch {
         return Response.json({ message: 'Not found', ok: false }, { status: 404 })
       }
@@ -30,7 +30,7 @@ export function resendEndpoint(options: ResolvedOptions): Endpoint {
           id,
           collection: options.slugs.submissions as never,
           context: { [RESEND_CONTEXT]: true },
-          data: { deliveryLog: result.log, status: result.status } as never,
+          data: { deliveryLog: result.log, status: result.status },
           overrideAccess: true,
         })
       }

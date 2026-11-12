@@ -85,8 +85,8 @@ export function pluginLocale(payload: Payload, value: unknown): TypedLocale | un
     return undefined
   }
   return typeof value === 'string' && localization.localeCodes.includes(value)
-    ? (value as TypedLocale)
-    : (localization.defaultLocale as TypedLocale)
+    ? (value)
+    : (localization.defaultLocale)
 }
 
 function pick(doc: Record<string, unknown>, names: string[] = []): Record<string, unknown> {
@@ -144,7 +144,7 @@ async function resolveChoices(payload: Payload, options: ResolvedOptions, sectio
         collection: slug as never,
         depth: 0,
         draft,
-        locale: locale as never,
+        locale: locale,
         overrideAccess: true,
         pagination: false,
         where: and.length ? { and } : undefined,
@@ -221,7 +221,7 @@ async function buildLoaded(
     successType: raw.successType === 'redirect' ? 'redirect' : 'message',
     title: String(raw.title || ''),
     turnstile: { enabled: options.turnstile.enabled, fieldName: options.turnstile.fieldName },
-    wording: fillWords(raw.wording as never, options.words),
+    wording: fillWords(raw.wording, options.words),
   }
   if (delivery.whatsapp.enabled) {
     let number = delivery.whatsapp.number?.trim() || ''
@@ -252,7 +252,7 @@ export async function loadPublishedForm(
     depth: 0,
     draft: false,
     limit: 1,
-    locale: args.locale as never,
+    locale: args.locale,
     overrideAccess: false,
     pagination: false,
     where: { and: [{ slug: { equals: slug } }, { _status: { equals: 'published' } }] },
@@ -267,7 +267,7 @@ export async function loadPublishedForm(
     collection: options.slugs.forms as never,
     depth: 0,
     draft: false,
-    locale: args.locale as never,
+    locale: args.locale,
     overrideAccess: true,
   })) as unknown as RawForm
   return buildLoaded(payload, options, { ...full, id: visible.id }, args.locale, args.req)
@@ -286,7 +286,7 @@ export async function loadFormById(
       collection: options.slugs.forms as never,
       depth: 0,
       draft: false,
-      locale: args.locale as never,
+      locale: args.locale,
       overrideAccess: true,
     })) as unknown as RawForm
     return full ? buildLoaded(payload, options, full, args.locale, args.req) : null
@@ -312,7 +312,7 @@ async function loadDraftForm(
     disableErrors: true,
     draft: true,
     limit: 1,
-    locale: args.locale as never,
+    locale: args.locale,
     overrideAccess: false,
     pagination: false,
     user: args.user,
@@ -329,7 +329,7 @@ async function loadDraftForm(
     depth: 0,
     disableErrors: true,
     draft: true,
-    locale: args.locale as never,
+    locale: args.locale,
     overrideAccess: true,
   })) as unknown as null | RawForm
   if (!full) {

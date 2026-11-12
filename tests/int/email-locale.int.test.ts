@@ -79,7 +79,7 @@ function sent(to: string): SendEmailOptions {
 }
 
 async function readSubmission(target: App, id: number | string): Promise<Doc> {
-  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true }))
 }
 
 function columns(target: App, table: string): string[] | undefined {
@@ -138,7 +138,7 @@ describe('emails in the reader language', () => {
       id: form.id,
       collection: 'custom-forms',
       depth: 0,
-      fallbackLocale: false as never,
+      fallbackLocale: false,
       locale: 'es',
       overrideAccess: true,
     })) as Doc

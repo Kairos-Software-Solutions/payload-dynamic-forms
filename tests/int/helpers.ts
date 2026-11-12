@@ -55,7 +55,7 @@ export async function startApp(args: DevConfigArgs = {}): Promise<App> {
 export async function login(app: App, role: 'admin' | 'editor'): Promise<string> {
   const email = `${role}-${Math.random().toString(36).slice(2)}@example.com`
   const password = 'test-password-not-secret'
-  await app.payload.create({ collection: 'users', data: { email, password, role } as never, overrideAccess: true })
+  await app.payload.create({ collection: 'users', data: { email, password, role }, overrideAccess: true })
   const result = await app.payload.login({ collection: 'users', data: { email, password } })
   return result.token!
 }
@@ -64,7 +64,7 @@ export async function login(app: App, role: 'admin' | 'editor'): Promise<string>
 export async function loginUser(app: App, role: 'admin' | 'editor'): Promise<{ token: string; user: NonNullable<PayloadRequest['user']> }> {
   const email = `${role}-${Math.random().toString(36).slice(2)}@example.com`
   const password = 'test-password-not-secret'
-  await app.payload.create({ collection: 'users', data: { email, password, role } as never, overrideAccess: true })
+  await app.payload.create({ collection: 'users', data: { email, password, role }, overrideAccess: true })
   const result = await app.payload.login({ collection: 'users', data: { email, password } })
   return { token: result.token!, user: result.user as never }
 }
@@ -146,11 +146,11 @@ export async function translateForm(app: App, id: number | string, locale: strin
     collection: 'custom-forms',
     depth: 0,
     draft: false,
-    fallbackLocale: false as never,
-    locale: locale as never,
+    fallbackLocale: false,
+    locale: locale,
     overrideAccess: true,
   })) as Doc
   edit(doc)
   const { id: _id, createdAt: _c, updatedAt: _u, ...data } = doc
-  await app.payload.update({ id, collection: 'custom-forms', data: data as never, locale: locale as never, overrideAccess: true })
+  await app.payload.update({ id, collection: 'custom-forms', data: data, locale: locale, overrideAccess: true })
 }

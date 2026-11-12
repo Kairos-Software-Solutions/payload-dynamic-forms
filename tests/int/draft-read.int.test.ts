@@ -48,7 +48,7 @@ async function formWithDraft(target: App, extra: Record<string, unknown> = {}) {
     data: {
       sections: [...form.sections, section('more', [field('text', 'phone', { words: { label: 'Phone' } })])],
       wording: { ...form.wording, send: 'Send draft', success: 'Thanks draft' },
-    } as never,
+    },
     draft: true,
     overrideAccess: true,
   })
@@ -115,13 +115,13 @@ describe('draft read', () => {
     const suffix = Math.random().toString(36).slice(2, 7)
     const repairs = await app.payload.create({
       collection: 'topics' as never,
-      data: { slug: `repairs-${suffix}`, _status: 'published', label: 'Repairs' } as never,
+      data: { slug: `repairs-${suffix}`, _status: 'published', label: 'Repairs' },
       overrideAccess: true,
     })
-    await app.payload.update({ id: repairs.id, collection: 'topics' as never, data: { label: 'Repairs and care' } as never, draft: true, overrideAccess: true })
+    await app.payload.update({ id: repairs.id, collection: 'topics' as never, data: { label: 'Repairs and care' }, draft: true, overrideAccess: true })
     const fresh = await app.payload.create({
       collection: 'topics' as never,
-      data: { slug: `restoration-${suffix}`, _status: 'draft', label: 'Restoration' } as never,
+      data: { slug: `restoration-${suffix}`, _status: 'draft', label: 'Restoration' },
       draft: true,
       overrideAccess: true,
     })

@@ -105,7 +105,7 @@ describe('access', () => {
         metadata: { locale: 'en', timeZone: 'America/New_York', userAgent: 'test-agent' },
         snapshot: [{ fieldKey: 'name', label: 'name', sectionKey: 's', sectionTitle: 'Section s', value: 'Ana' }],
         status: 'processed',
-      } as never,
+      },
       overrideAccess: true,
     })) as Doc
     const read = async () =>
@@ -134,7 +134,7 @@ describe('access', () => {
       app.payload.update({
         id: created.id,
         collection: 'custom-form-submissions' as never,
-        data: { ...edit, status: 'partlyFailed' } as never,
+        data: { ...edit, status: 'partlyFailed' },
         overrideAccess: false,
         user,
       }),

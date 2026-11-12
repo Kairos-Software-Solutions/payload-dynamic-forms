@@ -18,7 +18,7 @@ afterAll(async () => {
 type Doc = Record<string, any>
 
 async function read(id: number | string, locale?: 'en' | 'es'): Promise<Doc> {
-  return (await app.payload.findByID({ id, collection: 'custom-forms' as never, depth: 0, locale, overrideAccess: true })) as Doc
+  return (await app.payload.findByID({ id, collection: 'custom-forms' as never, depth: 0, locale, overrideAccess: true }))
 }
 
 describe('form save', () => {
@@ -50,7 +50,7 @@ describe('form save', () => {
       field('checkboxGroup', 'extras', { options: [{ label: 'Gift wrap', value: 'wrap' }] }),
       field('fileUpload', 'files', { maxFiles: 2, mimeTypes: ['application/pdf', 'text/plain'] }),
     ]
-    const form = await createForm(app, { sections: [section('all', blocks as never)] })
+    const form = await createForm(app, { sections: [section('all', blocks)] })
     const doc = await read(form.id)
     expect(doc.sections[0].fields.map((f: Doc) => f.blockType)).toEqual([
       'heading',
@@ -87,14 +87,14 @@ describe('form save', () => {
 
   test('words are localized when the app has locales', async () => {
     const form = await createForm(app, { sections: [section('s', [field('text', 'name')])] })
-    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { wording: { send: 'Send' } } as never, locale: 'en', overrideAccess: true })
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { wording: { send: 'Send' } }, locale: 'en', overrideAccess: true })
     // Translating means filling the required words of the other locale too (title, labels).
     const en = await read(form.id, 'en')
     en.sections[0].fields[0].words.label = 'Nombre'
     await app.payload.update({
       id: form.id,
       collection: 'custom-forms' as never,
-      data: { sections: en.sections, title: 'Formulario', wording: { send: 'Enviar' } } as never,
+      data: { sections: en.sections, title: 'Formulario', wording: { send: 'Enviar' } },
       locale: 'es',
       overrideAccess: true,
     })
@@ -209,7 +209,7 @@ describe('form save', () => {
     const topic = (label: string) =>
       app.payload.create({
         collection: 'topics' as never,
-        data: { slug: `${label.toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`, _status: 'published', label } as never,
+        data: { slug: `${label.toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`, _status: 'published', label },
         overrideAccess: true,
       }) as Promise<{ id: number }>
     const first = await topic('Cameras')
@@ -255,7 +255,7 @@ describe('form save', () => {
         }
       }
     }
-    visit(app.payload.collections['custom-forms' as never].config.fields as never)
+    visit(app.payload.collections['custom-forms' as never].config.fields)
     expect(options).toEqual([
       { label: 'Step by step', value: 'steps' },
       { label: 'Single page', value: 'singlePage' },
@@ -264,7 +264,7 @@ describe('form save', () => {
 
   test('saved single-page forms keep their mode', async () => {
     const form = await createForm(app, { presentationMode: 'singlePage', sections: [section('s', [field('text', 'name')])] })
-    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { title: 'Renamed' } as never, overrideAccess: true })
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { title: 'Renamed' }, overrideAccess: true })
     const doc = await read(form.id)
     expect(doc.title).toBe('Renamed')
     expect(doc.presentationMode).toBe('singlePage')
@@ -281,7 +281,7 @@ describe('form save', () => {
         expect(f.id).toBeTruthy()
       }
     }
-    await app.payload.update({ id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
+    await app.payload.update({ id, collection: 'custom-forms' as never, data: { sections: doc.sections }, overrideAccess: true })
     return read(id)
   }
 
@@ -504,8 +504,8 @@ describe('form save', () => {
       id: form.id,
       collection: 'custom-forms' as never,
       depth: 0,
-      fallbackLocale: false as never,
-      locale: 'es' as never,
+      fallbackLocale: false,
+      locale: 'es',
       overrideAccess: true,
     })) as Doc
     expect(values(es)).toEqual(['b', '12', '2026-12-01', 'team@example.com'])

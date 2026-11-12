@@ -179,7 +179,7 @@ describe('default fields', () => {
     // Limits: Today on Date questions, nothing relative on a Time question's limits.
     cleanup()
     act(() => form.reset({ [minPath]: null, [modePath]: 'dayOnly' }))
-    render(<DateValueField field={{ name: 'minDate', label: 'Earliest' } as never} limit path={minPath} />)
+    render(<DateValueField field={{ name: 'minDate', label: 'Earliest' }} limit path={minPath} />)
     fireEvent.click(screen.getByLabelText('Today'))
     expect(form.get(minPath)).toBe('today')
     act(() => form.set(modePath, 'timeOnly'))

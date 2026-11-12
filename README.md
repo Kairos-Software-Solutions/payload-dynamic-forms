@@ -501,7 +501,7 @@ Visitor IPs are not stored unless `metadata: { ip: true }`. The rate limit keeps
 ## Compatibility
 
 - Use 0.3.0 or later: 0.1.0 and 0.2.0 were published with entry points at files the package doesn't contain, so they can't be imported.
-- Payload `^3.92.1` (developed and tested against 3.92.1). Payload 4 is not supported yet.
+- Payload `^3.92.1` (tested against 3.93.0 and React 19.3, with Next.js 16.4 in the dev app; the published 0.5.0 was tested against 3.92.1 and React 19.2). Payload 4 is not supported yet.
 - The runtime code uses Web APIs only (Web Crypto, `fetch`, `node:buffer` for uploads), so it runs on Node and on Cloudflare Workers; the `/shared` entry imports nothing from Payload, React or Node and runs in the browser. React and `@payloadcms/ui` are used only by the `/client` entry (admin components, `'use client'`).
 - Tested on SQLite (`@payloadcms/db-sqlite`). Postgres and Workers/D1 are not tested here; nested selects carry short `dbName`s for Postgres.
 

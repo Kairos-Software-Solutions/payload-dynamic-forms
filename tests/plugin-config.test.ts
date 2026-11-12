@@ -675,7 +675,7 @@ describe('plugin config', () => {
 
   test('optional radio questions carry the no-answer hint', () => {
     for (const options of [{}, { optionSources: { posts: { collection: 'posts', labelField: 'title', valueField: 'title' } } }]) {
-      const blocks = sectionBlocks(formsPlugin(options as never)(baseConfig()))
+      const blocks = sectionBlocks(formsPlugin(options)(baseConfig()))
       const radio = blocks.find((b) => b.slug === 'radio')!
       const open = openFields(radio.fields)
       const index = open.findIndex((f) => 'name' in f && f.name === 'noAnswerHint')
