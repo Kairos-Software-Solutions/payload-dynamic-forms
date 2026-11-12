@@ -55,20 +55,20 @@ const contactSections = [
 const hook = { webhooks: [{ label: 'Hook', url: 'https://hooks.example.com/dates' }] }
 
 async function readSub(target: App, id: number | string): Promise<Doc> {
-  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true }))
 }
 
 describe('public read', () => {
   test('public read resolves choices and words and hides delivery', async () => {
     const topic = await app.payload.create({
       collection: 'topics' as never,
-      data: { slug: 'cameras', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Cameras', opener: 'Hi!' } as never,
+      data: { slug: 'cameras', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Cameras', opener: 'Hi!' },
       overrideAccess: true,
     })
     // 0.4.0: a radio needs two picked items (or none).
     const second = await app.payload.create({
       collection: 'topics' as never,
-      data: { slug: 'tripods', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Tripods', opener: 'Hello!' } as never,
+      data: { slug: 'tripods', _status: 'published', closer: 'Bye.', fieldSet: 'item', label: 'Tripods', opener: 'Hello!' },
       overrideAccess: true,
     })
     const form = await createForm(app, {
@@ -258,7 +258,7 @@ describe('submit', () => {
     const { body } = await submit(app, form.slug, { name: 'Ana', email: 'ana@example.com' })
     const doc = (await app.payload.findByID({ id: form.id, collection: 'custom-forms' as never, depth: 0, overrideAccess: true })) as Record<string, any>
     doc.sections[0].fields[0].words.label = 'Full name'
-    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections }, overrideAccess: true })
     const sub = (await app.payload.findByID({ id: body.submissionId, collection: 'custom-form-submissions' as never, overrideAccess: true })) as Record<string, any>
     expect(sub.snapshot[0]).toMatchObject({ fieldKey: 'name', label: 'Name', sectionKey: 's', value: 'Ana' })
   })
@@ -278,7 +278,7 @@ describe('submit', () => {
 
   test('custom field type validate runs on the server', async () => {
     const form = await createForm(app, {
-      sections: [section('s', [{ blockType: 'postcode', fieldKey: 'postcode', required: true, words: { label: 'Postcode' } } as never])],
+      sections: [section('s', [{ blockType: 'postcode', fieldKey: 'postcode', required: true, words: { label: 'Postcode' } }])],
     })
     const bad = await submit(app, form.slug, { postcode: 'abc' })
     expect(bad.status).toBe(400)
@@ -400,7 +400,7 @@ describe('submit', () => {
     const file = await app.fetch(`/custom-forms/submit/${fileForm.slug}`, { body: data, method: 'POST' })
     expect(await file.json()).toEqual({ fieldErrors: { cv: 'M-file CV' }, message: 'M-prefix', ok: false })
     // Closed.
-    await appTs.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { intakeState: 'closed' } as never, overrideAccess: true })
+    await appTs.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { intakeState: 'closed' }, overrideAccess: true })
     const closed = await submit(appTs, form.slug, { name: 'A', nick: 'a' }, { headers: ip(5) })
     expect(closed).toEqual({ body: { message: 'M-closed', ok: false }, status: 409 })
     // No fixed English string anywhere.
@@ -481,7 +481,7 @@ describe('submit', () => {
     // A save that resends the row ids keeps the columns NULL (no default is written on update).
     const doc = await read()
     doc.sections[0].title = 'Renamed'
-    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections } as never, overrideAccess: true })
+    await app.payload.update({ id: form.id, collection: 'custom-forms' as never, data: { sections: doc.sections }, overrideAccess: true })
     const rows = (await db.drizzle.all(sql`SELECT mode, value_format, display_style FROM custom_forms_blocks_date WHERE id = ${rowId}`)) as Doc[]
     expect(rows).toEqual([{ display_style: null, mode: null, value_format: null }])
     expect((await read()).sections[0].title).toBe('Renamed')

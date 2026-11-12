@@ -11,7 +11,7 @@ export function applyOverrides(base: CollectionConfig, override: CollectionOverr
     return base
   }
   const { fields, ...rest } = override
-  const merged: CollectionConfig = { ...base, ...rest } as CollectionConfig
+  const merged: CollectionConfig = { ...base, ...rest }
   if (rest.access) {
     merged.access = { ...base.access, ...rest.access }
   }

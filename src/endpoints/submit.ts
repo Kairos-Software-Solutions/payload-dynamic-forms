@@ -158,7 +158,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
             for (const file of files[key]) {
               const doc = await payload.create({
                 collection: attachmentSlug as never,
-                data: { fieldKey: key, fieldLabel: getFieldLabel(field, key), form: form.id } as never,
+                data: { fieldKey: key, fieldLabel: getFieldLabel(field, key), form: form.id },
                 file: {
                   name: file.name || 'upload',
                   data: Buffer.from(await file.arrayBuffer()),
@@ -192,7 +192,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               },
               snapshot,
               status: outputs ? 'received' : 'processed',
-            } as never,
+            },
             overrideAccess: true,
           })
           submissionId = submission.id
@@ -200,7 +200,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
             await payload.update({
               id: file.id,
               collection: attachmentSlug as never,
-              data: { submission: submissionId } as never,
+              data: { submission: submissionId },
               overrideAccess: true,
             })
           }
@@ -241,7 +241,7 @@ export function submitEndpoint(options: ResolvedOptions): Endpoint {
               await payload.update({
                 id: submissionId,
                 collection: options.slugs.submissions as never,
-                data: { deliveryLog: entries, status: statusFromLog(entries) } as never,
+                data: { deliveryLog: entries, status: statusFromLog(entries) },
                 overrideAccess: true,
               })
             }

@@ -28,7 +28,7 @@ export async function resendFailedDeliveries(
   const options = getPluginOptions(payload)
   const log = (submission.deliveryLog || []).map((entry) => {
     const { id: _id, ...rest } = entry as { id?: string } & LogEntry
-    return rest as LogEntry
+    return rest
   })
   const formId = typeof submission.form === 'object' && submission.form ? submission.form.id : submission.form
   const locale = pluginLocale(payload, submission.metadata?.locale)

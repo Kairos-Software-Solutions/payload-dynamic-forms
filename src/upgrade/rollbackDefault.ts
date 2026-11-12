@@ -49,7 +49,7 @@ export function rollbackDefault(args: RollbackArgs): RollbackResult {
       return null
     }
     // (Not narrowed: an invalid text is still a string.)
-    if (isValidDate(text as unknown)) {
+    if (isValidDate(text)) {
       return text
     }
     report.push(`${label} "${text}" dropped: ${why(text)}.`)

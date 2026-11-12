@@ -30,7 +30,7 @@ function dateLimit(name: string, label: string): Field {
       }
       return mode === 'timeOnly' ? `Use ${dateFormatWords(mode)}.` : `Use ${dateFormatWords(mode)} or today.`
     },
-  } as Field
+  }
 }
 
 /**

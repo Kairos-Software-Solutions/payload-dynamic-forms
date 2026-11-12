@@ -13,7 +13,7 @@
 
 ## 4. Lint
 
-- [ ] 4.1 Run `yarn lint`. Fix new errors as design 7 says (code only, no behaviour change, no rule turned off), list each fix, and block if there are more than 10. Covers "One ESLint and one TypeScript" (its lint side). Done when `yarn lint` reports 0 errors; report the warning count.
+- [x] 4.1 Run `yarn lint`. Fix the `@typescript-eslint/no-unnecessary-type-assertion` errors with `eslint --fix` for that rule only, in `src/` and `tests/` (design 2's second exception: type assertions only). Prove `src/` is unchanged at runtime: build the base tree in a `git worktree` and this tree, and `diff -r -x '*.d.ts' -x '*.map'` the two `dist/` folders shows no difference. Fix any other new error as design 7 says (code only, no behaviour change, no rule turned off), list each fix, and block if there are more than 10. Covers "One ESLint and one TypeScript" (its lint side). Done when `yarn lint` reports 0 errors; report the warning count.
 
 ## 5. README
 

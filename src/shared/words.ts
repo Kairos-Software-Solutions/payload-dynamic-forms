@@ -36,7 +36,7 @@ export function fillWords(
   words: null | Partial<Record<keyof FormWords, null | string>> | undefined,
   defaults: Partial<FormWords> = DEFAULT_WORDS,
 ): FormWords {
-  const out = { ...DEFAULT_WORDS, ...defaults } as FormWords
+  const out = { ...DEFAULT_WORDS, ...defaults }
   for (const key of WORD_KEYS) {
     const value = words?.[key]
     if (typeof value === 'string' && value.trim()) {

@@ -79,7 +79,7 @@ const contact = [
 const team = { body: '{{*}}', kind: 'team', label: 'Team', subject: 'New {{project-type}}', to: 'team@example.com' }
 
 async function readSubmission(target: App, id: number | string): Promise<Doc> {
-  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+  return (await target.payload.findByID({ id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true }))
 }
 
 async function topicSetup(target: App, whatsapp: Record<string, unknown>) {
@@ -95,7 +95,7 @@ async function topicSetup(target: App, whatsapp: Record<string, unknown>) {
           fieldSet,
           label,
           opener: `Hello! A question about ${label.toLowerCase()}.`,
-        } as never,
+        },
         overrideAccess: true,
       }),
     )

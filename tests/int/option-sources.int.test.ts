@@ -81,7 +81,7 @@ describe('option sources', () => {
     const keep = await topic('Bags', 'item')
     const unpublish = await topic('Straps', 'item')
     const remove = await topic('Filters', 'item')
-    await app.payload.update({ id: unpublish.id, collection: 'topics' as never, data: { _status: 'draft' } as never, overrideAccess: true })
+    await app.payload.update({ id: unpublish.id, collection: 'topics' as never, data: { _status: 'draft' }, overrideAccess: true })
     const form = await createForm(app, {
       sections: [
         section('s', [

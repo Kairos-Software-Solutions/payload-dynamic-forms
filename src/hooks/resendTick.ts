@@ -16,7 +16,7 @@ export function resendTickHook(options: ResolvedOptions): CollectionBeforeChange
       return data
     }
     data.resendFailed = false
-    const submission = { ...(originalDoc as SubmissionDoc), ...(data as Partial<SubmissionDoc>) } as SubmissionDoc
+    const submission = { ...(originalDoc as SubmissionDoc), ...(data as Partial<SubmissionDoc>) }
     if (options.delivery?.schedule) {
       const payload = req.payload
       options.delivery.schedule(async () => {
@@ -32,7 +32,7 @@ export function resendTickHook(options: ResolvedOptions): CollectionBeforeChange
             id: submission.id,
             collection: options.slugs.submissions as never,
             context: { [RESEND_CONTEXT]: true },
-            data: { deliveryLog: result.log, status: result.status } as never,
+            data: { deliveryLog: result.log, status: result.status },
             overrideAccess: true,
           })
         } catch (error) {
