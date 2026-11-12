@@ -731,4 +731,23 @@ describe('plugin config', () => {
     })
     expect(found).toMatchObject({ name: 'timeZone', type: 'text' })
   })
+
+  test('submission record fields are read-only by access', () => {
+    const subs = collection(formsPlugin({ attachments: {} })(baseConfig()), 'custom-form-submissions')
+    const byName = new Map(subs.fields.filter((f) => 'name' in f).map((f) => [(f as { name: string }).name, f as { access?: Record<string, unknown> } & Field]))
+    for (const name of ['form', 'answers', 'snapshot', 'attachments', 'deliveryLog', 'metadata']) {
+      const field = byName.get(name)
+      expect(field, name).toBeDefined()
+      const update = field!.access?.update as ((args: unknown) => unknown) | undefined
+      expect(typeof update, name).toBe('function')
+      expect(update!({ req: { user: { id: 1, role: 'admin' } } }), name).toBe(false)
+      expect(update!({ req: {} }), name).toBe(false)
+      expect(Object.keys(field!.access!), name).toEqual(['update'])
+    }
+    for (const name of ['status', 'resendFailed']) {
+      expect(byName.get(name)!.access, name).toBeUndefined()
+    }
+    // The collection's own update stays admin-only (status and the resend tick).
+    expect(typeof subs.access!.update).toBe('function')
+  })
 })

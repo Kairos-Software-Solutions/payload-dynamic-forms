@@ -2,7 +2,7 @@ import type { CollectionConfig, Endpoint } from 'payload'
 
 import type { ResolvedOptions } from '../types.js'
 
-import { adminAccess, loggedIn, nobody } from '../access.js'
+import { adminAccess, loggedIn, nobody, nobodyField } from '../access.js'
 import { resendTickHook } from '../hooks/resendTick.js'
 
 export const SUBMISSION_STATUSES = [
@@ -29,7 +29,9 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
     defaultSort: '-createdAt',
     endpoints,
     fields: [
-      { name: 'form', type: 'relationship', relationTo: options.slugs.forms as never, required: true },
+      // The record (form, answers, snapshot, attachments, delivery log, metadata) is read-only by
+      // access, on every API; only the status and the resend tick stay editable by admins.
+      { name: 'form', type: 'relationship', access: { update: nobodyField }, relationTo: options.slugs.forms as never, required: true },
       {
         name: 'status',
         type: 'select',
@@ -46,10 +48,11 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
         defaultValue: false,
         label: 'Resend failed deliveries',
       },
-      { name: 'answers', type: 'json', required: true },
+      { name: 'answers', type: 'json', access: { update: nobodyField }, required: true },
       {
         name: 'snapshot',
         type: 'array',
+        access: { update: nobodyField },
         admin: { description: 'Each answer as worded when it was sent.', readOnly: true },
         fields: [
           { name: 'sectionKey', type: 'text' },
@@ -64,6 +67,7 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
             {
               name: 'attachments',
               type: 'relationship' as const,
+              access: { update: nobodyField },
               admin: { readOnly: true },
               hasMany: true,
               relationTo: options.attachments.collection as never,
@@ -73,6 +77,7 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
       {
         name: 'deliveryLog',
         type: 'array',
+        access: { update: nobodyField },
         admin: { initCollapsed: true, readOnly: true },
         fields: [
           {
@@ -107,6 +112,7 @@ export function submissionsCollection(options: ResolvedOptions, endpoints: Endpo
       {
         name: 'metadata',
         type: 'group',
+        access: { update: nobodyField },
         admin: { readOnly: true },
         fields: [
           { name: 'ip', type: 'text', admin: { description: 'Kept only when the plugin option metadata.ip is on.' } },

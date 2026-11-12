@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
-import { type App, createForm, field, login, section, startApp } from './helpers.js'
+import { type App, createForm, type Doc, field, login, loginUser, section, startApp } from './helpers.js'
 
 let app: App
 let adminToken: string
@@ -90,5 +90,59 @@ describe('access', () => {
 
     expect((await app.payload.count({ collection: 'custom-form-submissions' as never })).totalDocs).toBe(0)
     expect((await app.payload.count({ collection: 'custom-form-attachments' as never })).totalDocs).toBe(0)
+  })
+
+  test('submission records refuse edits, status stays editable', async () => {
+    const { token, user } = await loginUser(app, 'admin')
+    const form = await createForm(app, { sections: [section('s', [field('text', 'name')])] })
+    const other = await createForm(app, { sections: [section('s', [field('text', 'name')])] })
+    const created = (await app.payload.create({
+      collection: 'custom-form-submissions' as never,
+      data: {
+        answers: { name: 'Ana' },
+        deliveryLog: [{ at: '2026-11-12T10:00:00.000Z', kind: 'email', label: 'Team', result: 'success', tries: 1 }],
+        form: form.id,
+        metadata: { locale: 'en', timeZone: 'America/New_York', userAgent: 'test-agent' },
+        snapshot: [{ fieldKey: 'name', label: 'name', sectionKey: 's', sectionTitle: 'Section s', value: 'Ana' }],
+        status: 'processed',
+      } as never,
+      overrideAccess: true,
+    })) as Doc
+    const read = async () =>
+      (await app.payload.findByID({ id: created.id, collection: 'custom-form-submissions' as never, depth: 0, overrideAccess: true })) as Doc
+    const record = (doc: Doc) => ({
+      answers: doc.answers,
+      deliveryLog: doc.deliveryLog,
+      form: doc.form,
+      metadata: doc.metadata,
+      snapshot: doc.snapshot,
+    })
+    const before = record(await read())
+    const edit = {
+      answers: { name: 'Changed' },
+      deliveryLog: [],
+      form: other.id,
+      metadata: { locale: 'es' },
+      snapshot: [{ fieldKey: 'name', label: 'Changed', sectionKey: 's', sectionTitle: 'x', value: 'Changed' }],
+    }
+    const res = await app.fetch(`/custom-form-submissions/${created.id}`, { json: { ...edit, status: 'failed' }, method: 'PATCH', token })
+    expect(res.status).toBe(200)
+    const afterRest = await read()
+    expect(afterRest.status).toBe('failed')
+    expect(record(afterRest)).toEqual(before)
+    await expect(
+      app.payload.update({
+        id: created.id,
+        collection: 'custom-form-submissions' as never,
+        data: { ...edit, status: 'partlyFailed' } as never,
+        overrideAccess: false,
+        user,
+      }),
+    ).resolves.toBeDefined()
+    const afterLocal = await read()
+    expect(afterLocal.status).toBe('partlyFailed')
+    expect(record(afterLocal)).toEqual(before)
+    expect(afterLocal.metadata.locale).toBe('en')
+    expect(afterLocal.form).toBe(form.id)
   })
 })
