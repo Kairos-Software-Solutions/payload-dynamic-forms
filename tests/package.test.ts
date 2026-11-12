@@ -9,7 +9,7 @@ const licence = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8')
 describe('package', () => {
   test('package metadata and licence agree', () => {
     expect(pkg.name).toBe('payload-dynamic-forms')
-    expect(pkg.version).toBe('0.4.0')
+    expect(pkg.version).toBe('0.5.0')
     expect(pkg.license).toBe('MIT')
     expect(licence.split('\n')[0]).toBe(`${pkg.license} License`)
     expect(licence).toContain('Copyright (c) 2026 Kairos Software Solutions')

@@ -27,6 +27,21 @@ function run(command, args, options = {}) {
   return result.stdout
 }
 
+/** Every name the client entry exports (design 19); the scratch app typechecks an import of each. */
+export const CLIENT_EXPORTS = [
+  'DateValueField',
+  'DefaultChoiceField',
+  'JumpSkipHint',
+  'KeyField',
+  'NoAnswerHint',
+  'NumberDefaultField',
+  'PrefillParamField',
+  'QuestionLabel',
+  'RowLabel',
+  'RuleFieldKeyField',
+  'SectionTargetField',
+]
+
 /** Every string target of an `exports` value, with its path through nested conditions. */
 function exportTargets(value, at = 'exports') {
   if (typeof value === 'string') {
@@ -135,8 +150,8 @@ function main(argv) {
       const main = await import('${NAME}')
       const shared = await import('${NAME}/shared')
       const missing = []
-      for (const name of ['formsPlugin', 'formBlock', 'getPublicForm']) if (main[name] === undefined) missing.push('${NAME}: ' + name)
-      for (const name of ['evaluateRules', 'buildWhatsAppMessage', 'whatsappUrl', 'interpolate', 'DEFAULT_WORDS']) if (shared[name] === undefined) missing.push('${NAME}/shared: ' + name)
+      for (const name of ['formsPlugin', 'formBlock', 'getPublicForm', 'carryOverDefault', 'rollbackDefault']) if (main[name] === undefined) missing.push('${NAME}: ' + name)
+      for (const name of ['evaluateRules', 'buildWhatsAppMessage', 'whatsappUrl', 'interpolate', 'DEFAULT_WORDS', 'TIME_ZONE_FIELD', 'TODAY', 'browserTimeZone', 'resolveDateLimit', 'formatAnswerDate', 'toUtcInstant']) if (shared[name] === undefined) missing.push('${NAME}/shared: ' + name)
       // The client entry is resolved, not imported: it pulls in @payloadcms/ui, which imports .scss.
       const resolved = [import.meta.resolve('${NAME}'), import.meta.resolve('${NAME}/shared'), import.meta.resolve('${NAME}/client')]
       const expected = ['/node_modules/${NAME}/dist/index.js', '/node_modules/${NAME}/dist/exports/shared.js', '/node_modules/${NAME}/dist/exports/client.js']
@@ -156,12 +171,15 @@ function main(argv) {
     fs.writeFileSync(
       path.join(app, 'check.ts'),
       [
-        `import { formsPlugin } from '${NAME}'`,
-        `import { KeyField, NoAnswerHint, PrefillParamField, RuleFieldKeyField, SectionTargetField } from '${NAME}/client'`,
-        `import { evaluateRules } from '${NAME}/shared'`,
+        `import { carryOverDefault, formsPlugin, rollbackDefault } from '${NAME}'`,
+        `import { ${CLIENT_EXPORTS.join(', ')} } from '${NAME}/client'`,
+        `import { browserTimeZone, evaluateRules, formatAnswerDate, resolveDateLimit, TIME_ZONE_FIELD, TODAY, toUtcInstant } from '${NAME}/shared'`,
         '',
         'export const used: [typeof formsPlugin, typeof evaluateRules] = [formsPlugin, evaluateRules]',
-        'export const components = [KeyField, PrefillParamField, RuleFieldKeyField, SectionTargetField, NoAnswerHint] as const',
+        'export const upgrade = [carryOverDefault, rollbackDefault] as const',
+        'export const dates = [browserTimeZone, formatAnswerDate, resolveDateLimit, toUtcInstant] as const',
+        "export const tokens: ['_tz', 'today'] = [TIME_ZONE_FIELD, TODAY]",
+        `export const components = [${CLIENT_EXPORTS.join(', ')}] as const`,
         '',
       ].join('\n'),
     )
