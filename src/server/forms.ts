@@ -5,6 +5,7 @@ import { createLocalReq } from 'payload'
 import type { ChoiceOption, FormSection, InputBlock, PublicForm } from '../shared/types.js'
 import type { ResolvedOptions } from '../types.js'
 
+import { dateDisplayStyle, dateMode } from '../shared/dates.js'
 import { isChoiceBlock, isInputBlock } from '../shared/rules.js'
 import { fillWords } from '../shared/words.js'
 
@@ -162,6 +163,30 @@ async function resolveChoices(payload: Payload, options: ResolvedOptions, sectio
   }
 }
 
+/**
+ * What renderers read on each question: number defaults as numbers (stored as text, design 2),
+ * and every date question's mode, stored format and display style filled when stored empty.
+ */
+function fillPublicFields(sections: FormSection[]): void {
+  for (const section of sections) {
+    for (const field of section.fields || []) {
+      if (!isInputBlock(field)) {
+        continue
+      }
+      if (field.blockType === 'number') {
+        const d = field.defaultValue
+        const n = typeof d === 'number' ? d : typeof d === 'string' && d.trim() ? Number(d.trim()) : Number.NaN
+        field.defaultValue = Number.isFinite(n) ? n : null
+      }
+      if (field.blockType === 'date') {
+        field.mode = dateMode(field)
+        field.valueFormat = field.valueFormat === 'utc' ? 'utc' : 'local'
+        field.displayStyle = dateDisplayStyle(field)
+      }
+    }
+  }
+}
+
 async function buildLoaded(
   payload: Payload,
   options: ResolvedOptions,
@@ -172,6 +197,7 @@ async function buildLoaded(
 ): Promise<LoadedForm> {
   const sections = structuredClone(raw.sections || []).filter(Boolean)
   await resolveChoices(payload, options, sections, locale, draft)
+  fillPublicFields(sections)
   const d = raw.delivery || {}
   const delivery: FormDelivery = {
     emails: (d.emails || []).filter(Boolean),

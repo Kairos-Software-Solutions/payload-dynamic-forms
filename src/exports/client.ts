@@ -1,7 +1,10 @@
 'use client'
 
+export { DateValueField } from '../admin/DateValueField.js'
+export { DefaultChoiceField } from '../admin/DefaultChoiceField.js'
 export { KeyField } from '../admin/KeyField.js'
 export { NoAnswerHint } from '../admin/NoAnswerHint.js'
+export { NumberDefaultField } from '../admin/NumberDefaultField.js'
 export { PrefillParamField } from '../admin/PrefillParamField.js'
 export { RuleFieldKeyField } from '../admin/RuleFieldKeyField.js'
 export { SectionTargetField } from '../admin/SectionTargetField.js'

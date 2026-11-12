@@ -1,11 +1,12 @@
-import type { CollectionBeforeValidateHook } from 'payload'
+import type { CollectionBeforeValidateHook, PayloadRequest } from 'payload'
 
 import { ValidationError } from 'payload'
 
 import type { FieldBlock, FormSection, InputBlock, RuleGroup } from '../shared/types.js'
 import type { ResolvedOptions } from '../types.js'
 
-import { isInputBlock, normalizeKey, splitRuleKey } from '../shared/rules.js'
+import { dateLimitProblems, defaultProblem, isEmptyDefault } from '../shared/defaults.js'
+import { isChoiceBlock, isInputBlock, normalizeKey, splitRuleKey, toStringList } from '../shared/rules.js'
 
 type Issue = { message: string; path: string }
 
@@ -85,6 +86,42 @@ function findLoop(sections: FormSection[]): null | string[] {
   return null
 }
 
+/**
+ * The values a collection-choice default may take: the `valueField` of the picked items, or with an
+ * empty pick, of the items holding the wanted values. Trusted read (`overrideAccess`) of drafts.
+ */
+async function readSourceValues(req: PayloadRequest, options: ResolvedOptions, field: InputBlock): Promise<string[] | undefined> {
+  const source = options.optionSources?.[String(field.optionsFrom)]
+  if (!source) {
+    return undefined
+  }
+  const slug = String(source.collection)
+  const picked = Array.isArray(field.sourceItems) ? (field.sourceItems as unknown[]) : []
+  const ids = picked
+    .map((item) => {
+      if (item && typeof item === 'object') {
+        const { relationTo, value } = item as { relationTo?: string; value?: unknown }
+        if (relationTo && relationTo !== slug) {
+          return undefined
+        }
+        return value && typeof value === 'object' ? (value as { id?: unknown }).id : value
+      }
+      return item
+    })
+    .filter((id): id is number | string => typeof id === 'number' || typeof id === 'string')
+  const wanted = toStringList(field.defaultValue)
+  const { docs } = await req.payload.find({
+    collection: slug as never,
+    depth: 0,
+    draft: true,
+    overrideAccess: true,
+    pagination: false,
+    req,
+    where: picked.length ? { id: { in: ids.length ? ids : [-1] } } : { [source.valueField]: { in: wanted } },
+  })
+  return docs.map((doc) => (doc as Record<string, unknown>)[source.valueField]).filter((v) => v !== null && v !== undefined).map((v) => String(v as string))
+}
+
 const TOKEN = /\{\{/
 
 /**
@@ -95,7 +132,7 @@ const TOKEN = /\{\{/
 export function validateFormBeforeSave(options: ResolvedOptions): CollectionBeforeValidateHook {
   const reserved = [options.honeypotField, options.turnstile.fieldName].map((name) => name.trim().toLowerCase())
 
-  return ({ collection, data, originalDoc, req }) => {
+  return async ({ collection, data, originalDoc, req }) => {
     if (!data) {
       return data
     }
@@ -167,6 +204,35 @@ export function validateFormBeforeSave(options: ResolvedOptions): CollectionBefo
         }
       })
     })
+
+    // Defaults and date limits fit their question (design 5). Empty defaults always fit. A
+    // collection-choice default must be one of the picked items, else of any item; the source is
+    // read as a trusted draft read, so a save never depends on another collection's publish state.
+    for (const [s, section] of sections.entries()) {
+      for (const [f, field] of (section?.fields || []).entries()) {
+        if (!isInputBlock(field)) {
+          continue
+        }
+        const name = field.words?.label?.trim() || field.fieldKey || `${f + 1}`
+        const base = `sections.${s}.fields.${f}`
+        if (field.blockType === 'date') {
+          for (const problem of dateLimitProblems(field)) {
+            issues.push({ message: `${name}: ${problem.reason}`, path: `${base}.${problem.name}` })
+          }
+        }
+        if (isEmptyDefault(field.defaultValue)) {
+          continue
+        }
+        let sourceValues: string[] | undefined
+        if (isChoiceBlock(field) && field.optionsFrom && field.optionsFrom !== 'typed') {
+          sourceValues = await readSourceValues(req, options, field)
+        }
+        const problem = defaultProblem(field, field.defaultValue, { sourceValues })
+        if (problem) {
+          issues.push({ message: `${name}: ${problem}`, path: `${base}.defaultValue` })
+        }
+      }
+    }
 
     // Rules and step targets.
     const checkRules = (group: null | RuleGroup | undefined, path: string) => {

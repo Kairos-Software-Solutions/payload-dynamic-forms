@@ -395,4 +395,125 @@ describe('form save', () => {
     expect(again.sections[0].fields[0].prefillParam).toBe('need')
     expect(initialAnswers(again as FormLike, '?need=x').topic).toBe('x')
   })
+
+  test("defaults that don't fit their question are refused", async () => {
+    const yesNo = [
+      { label: 'Yes', value: 'yes' },
+      { label: 'No', value: 'no' },
+    ]
+    const ab = [
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+    ]
+    const cases: Array<{ field: ReturnType<typeof field>; path: string }> = [
+      { field: field('email', 'email', { defaultValue: 'not-an-email', label: 'Your email' }), path: 'defaultValue' },
+      { field: field('number', 'count', { defaultValue: '20', label: 'How many', max: 10 }), path: 'defaultValue' },
+      { field: field('date', 'start', { defaultValue: '12/01/2026', label: 'Start date' }), path: 'defaultValue' },
+      { field: field('date', 'slot', { defaultValue: '2026-12-01', label: 'Time slot', mode: 'timeOnly' }), path: 'defaultValue' },
+      { field: field('date', 'range', { label: 'Range', maxDate: '2026-12-01', minDate: '2026-12-10' }), path: 'minDate' },
+      { field: field('date', 'opens', { label: 'Opens at', minDate: 'today', mode: 'timeOnly' }), path: 'minDate' },
+      { field: field('select', 'answer', { defaultValue: 'maybe', label: 'Answer', options: yesNo }), path: 'defaultValue' },
+      { field: field('checkboxGroup', 'extras', { defaultValue: 'a,z', label: 'Extras', options: ab }), path: 'defaultValue' },
+      { field: field('text', 'nickname', { defaultValue: 'twelve chars', label: 'Nickname', maxLength: 10 }), path: 'defaultValue' },
+    ]
+    const before = (await app.payload.count({ collection: 'custom-forms' as never, overrideAccess: true })).totalDocs
+    for (const c of cases) {
+      let error: unknown
+      try {
+        await createForm(app, { sections: [section('s', [field('text', 'name'), c.field])] })
+      } catch (e) {
+        error = e
+      }
+      const label = String((c.field.words as { label: string }).label)
+      expect(error, label).toBeDefined()
+      const errors = (error as { data?: { errors?: Array<{ message: string; path: string }> } }).data?.errors || []
+      const found = errors.find((e) => e.path === `sections.0.fields.1.${c.path}`)
+      expect(found, `${label}: ${JSON.stringify(errors)}`).toBeDefined()
+      expect(found!.message, label).toContain(`${label}:`)
+    }
+    expect((await app.payload.count({ collection: 'custom-forms' as never, overrideAccess: true })).totalDocs).toBe(before)
+  })
+
+  test('collection choice defaults must be one of the items', async () => {
+    const topic = (label: string, status: 'draft' | 'published' = 'published') =>
+      app.payload.create({
+        collection: 'topics' as never,
+        data: { slug: `${label.toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`, _status: status, label } as never,
+        draft: status === 'draft',
+        overrideAccess: true,
+      }) as Promise<{ id: number; slug: string }>
+    const first = await topic('Lenses')
+    const second = await topic('Bags', 'draft')
+    const other = await topic('Straps')
+    const pick = (...items: { id: number }[]) => items.map((t) => ({ relationTo: 'topics', value: t.id }))
+    const question = (defaultValue: string, sourceItems: unknown[]) =>
+      field('select', 'need', { defaultValue, label: 'Topic', optionsFrom: 'topics', sourceItems })
+    const refused = await saveError(createForm(app, { sections: [section('s', [question(other.slug, pick(first, second))])] }))
+    expect(refused).toContain(`Topic: "${other.slug}" is not one of the chosen items.`)
+    let errorPath = ''
+    try {
+      await createForm(app, { sections: [section('s', [question(other.slug, pick(first, second))])] })
+    } catch (e) {
+      errorPath = (e as { data: { errors: Array<{ path: string }> } }).data.errors[0].path
+    }
+    expect(errorPath).toBe('sections.0.fields.0.defaultValue')
+    const draftItem = await createForm(app, { sections: [section('s', [question(second.slug, pick(first, second))])] })
+    expect((await read(draftItem.id)).sections[0].fields[0].defaultValue).toBe(second.slug)
+    const anyItem = await createForm(app, { sections: [section('s', [question(other.slug, [])])] })
+    expect((await read(anyItem.id)).sections[0].fields[0].defaultValue).toBe(other.slug)
+    const missing = await saveError(createForm(app, { sections: [section('s', [question('no-such-topic', [])])] }))
+    expect(missing).toContain('Topic: "no-such-topic" is not one of the chosen items.')
+  })
+
+  test('defaults that fit their question are kept', async () => {
+    const form = await createForm(app, {
+      sections: [
+        section('s', [
+          field('email', 'email', { defaultValue: 'team@example.com' }),
+          field('number', 'count', { defaultValue: '5', max: 10, min: 1 }),
+          field('date', 'start', { defaultValue: 'today', maxDate: '2027-01-31', minDate: 'today' }),
+          field('date', 'slot', { defaultValue: '09:30', mode: 'timeOnly' }),
+          field('select', 'answer', { defaultValue: 'no', options: [{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }] }),
+          field('checkboxGroup', 'extras', { defaultValue: 'a,b', options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] }),
+          field('text', 'name'),
+          field('radio', 'colour', { options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }] }),
+          field('date', 'end'),
+        ]),
+      ],
+    })
+    const fields = (await read(form.id)).sections[0].fields as Doc[]
+    expect(fields.map((f) => f.defaultValue ?? null)).toEqual(['team@example.com', '5', 'today', '09:30', 'no', 'a,b', null, null, null])
+    expect(fields[2]).toMatchObject({ maxDate: '2027-01-31', minDate: 'today', mode: 'dayOnly' })
+    expect(fields[3].mode).toBe('timeOnly')
+  })
+
+  test('typed defaults are the same in every locale', async () => {
+    const form = await createForm(app, {
+      sections: [
+        section('s', [
+          field('select', 'size', { defaultValue: 'b', options: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] }),
+          field('number', 'count', { defaultValue: '12' }),
+          field('date', 'start', { defaultValue: '2026-12-01' }),
+          field('email', 'email', { defaultValue: 'team@example.com' }),
+        ]),
+      ],
+    })
+    const values = (doc: Doc) => (doc.sections[0].fields as Doc[]).map((f) => f.defaultValue)
+    expect(values(await read(form.id, 'en'))).toEqual(['b', '12', '2026-12-01', 'team@example.com'])
+    const es = (await app.payload.findByID({
+      id: form.id,
+      collection: 'custom-forms' as never,
+      depth: 0,
+      fallbackLocale: false as never,
+      locale: 'es' as never,
+      overrideAccess: true,
+    })) as Doc
+    expect(values(es)).toEqual(['b', '12', '2026-12-01', 'team@example.com'])
+    for (const locale of ['en', 'es'] as const) {
+      const shown = await getPublicForm(app.payload, form.slug, { locale })
+      const fields = shown!.sections[0].fields as Doc[]
+      expect(fields.map((f) => f.defaultValue), locale).toEqual(['b', 12, '2026-12-01', 'team@example.com'])
+      expect(typeof fields[1].defaultValue, locale).toBe('number')
+    }
+  })
 })

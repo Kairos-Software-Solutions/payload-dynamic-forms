@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
+import { PICKER_PROPS, pickToText, textToPick } from '../src/admin/dateText.js'
 import {
   fieldKeyOptions,
   joinRuleKey,
@@ -94,5 +95,55 @@ describe('admin logic', () => {
     expect(splitStoredRuleKey(null)).toEqual({ attribute: '', key: '' })
     expect(joinRuleKey('need', ' fieldSet ')).toBe('need.fieldSet')
     expect(joinRuleKey('need', '')).toBe('need')
+  })
+
+  test('date picker values convert to wall-time text both ways', () => {
+    // Date mode: the picker hands a pick over as 12:00 UTC of the picked day; read in UTC.
+    expect(pickToText(new Date('2026-12-01T12:00:00.000Z'), 'dayOnly')).toBe('2026-12-01')
+    const day = textToPick('2026-12-01', 'dayOnly')!
+    expect([day.getFullYear(), day.getMonth() + 1, day.getDate(), day.getHours()]).toEqual([2026, 12, 1, 12])
+    expect(pickToText(new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 12)), 'dayOnly')).toBe('2026-12-01')
+    // Date and time and Time: local getters and the local constructor, both ways.
+    expect(pickToText(new Date(2026, 11, 1, 9, 5), 'dayAndTime')).toBe('2026-12-01T09:05')
+    const dateTime = textToPick('2026-12-01T09:05', 'dayAndTime')!
+    expect([dateTime.getFullYear(), dateTime.getMonth() + 1, dateTime.getDate(), dateTime.getHours(), dateTime.getMinutes()]).toEqual([2026, 12, 1, 9, 5])
+    expect(pickToText(new Date(2026, 11, 1, 23, 45), 'timeOnly')).toBe('23:45')
+    const time = textToPick('23:45', 'timeOnly', new Date(2026, 10, 12, 8))!
+    expect([time.getFullYear(), time.getMonth() + 1, time.getDate(), time.getHours(), time.getMinutes()]).toEqual([2026, 11, 12, 23, 45])
+    // Round trips.
+    for (const [text, mode] of [['2027-01-31', 'dayOnly'], ['2026-03-08T02:30', 'dayAndTime'], ['00:00', 'timeOnly']] as const) {
+      expect(pickToText(textToPick(text, mode), mode === 'dayOnly' ? 'dayAndTime' : mode).slice(0, text.length), text).toBe(
+        mode === 'dayOnly' ? `${text}T12:00`.slice(0, text.length) : text,
+      )
+    }
+    // Nothing to pick: empty, today, or text of another mode.
+    for (const [text, mode] of [['', 'dayOnly'], ['today', 'dayOnly'], ['today', 'timeOnly'], ['14:30', 'dayOnly'], ['2026-12-01', 'timeOnly'], ['2026-12-01', 'dayAndTime'], [null, 'dayOnly']] as const) {
+      expect(textToPick(text, mode), `${String(text)} ${mode}`).toBeUndefined()
+    }
+    expect(pickToText(null, 'dayOnly')).toBe('')
+    expect(PICKER_PROPS.dayOnly).toEqual({ displayFormat: 'yyyy-MM-dd', pickerAppearance: 'dayOnly' })
+    expect(PICKER_PROPS.dayAndTime).toEqual({ displayFormat: 'yyyy-MM-dd HH:mm', pickerAppearance: 'dayAndTime', timeFormat: 'HH:mm', timeIntervals: 15 })
+    expect(PICKER_PROPS.timeOnly).toEqual({ displayFormat: 'HH:mm', pickerAppearance: 'timeOnly', timeFormat: 'HH:mm', timeIntervals: 15 })
+
+    // Pacific/Auckland (UTC+13 in December): picking 1 Dec, the picker hands over 1 Dec 12:00 UTC,
+    // which local getters would read as 2 Dec; the UTC read gives the picked day.
+    const savedTZ = process.env.TZ
+    process.env.TZ = 'Pacific/Auckland'
+    try {
+      const picked = new Date(2026, 11, 1)
+      picked.setHours(12 - picked.getTimezoneOffset() / 60, 0)
+      expect(picked.toISOString()).toBe('2026-12-01T12:00:00.000Z')
+      expect(picked.getDate()).toBe(2)
+      expect(pickToText(picked, 'dayOnly')).toBe('2026-12-01')
+      const back = textToPick('2026-12-01', 'dayOnly')!
+      expect([back.getFullYear(), back.getMonth() + 1, back.getDate()]).toEqual([2026, 12, 1])
+      expect(back.toISOString()).toBe('2026-11-30T23:00:00.000Z')
+    } finally {
+      if (savedTZ === undefined) {
+        delete process.env.TZ
+      } else {
+        process.env.TZ = savedTZ
+      }
+    }
   })
 })

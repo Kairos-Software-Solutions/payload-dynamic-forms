@@ -84,22 +84,42 @@ function TextInput({ AfterInput, description, inputRef, label, onChange, path, r
 }
 
 type SelectProps = {
+  hasMany?: boolean
   label?: unknown
   name: string
   onChange?: (option: unknown) => void
   options?: { label: string; value: string }[]
   path: string
   style?: React.CSSProperties
-  value?: string
+  value?: string | string[]
 }
 
-function SelectInput({ label, onChange, options = [], path, style, value }: SelectProps) {
+/** A plain `<select>`; with `hasMany` a multiple select whose change hands over the picked options. */
+function SelectInput({ hasMany, label, onChange, options = [], path, style, value }: SelectProps) {
+  if (hasMany) {
+    return (
+      <div data-path={path} style={style}>
+        <select
+          aria-label={typeof label === 'string' ? label : path}
+          multiple
+          onChange={(e) => onChange?.([...e.target.selectedOptions].map((s) => options.find((o) => o.value === s.value)).filter(Boolean))}
+          value={Array.isArray(value) ? value : value ? [value] : []}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
   return (
     <div data-path={path} style={style}>
       <select
         aria-label={typeof label === 'string' ? label : path}
         onChange={(e) => onChange?.(options.find((o) => o.value === e.target.value) ?? null)}
-        value={value ?? ''}
+        value={typeof value === 'string' ? value : ''}
       >
         <option value="">(none)</option>
         {options.map((o) => (
@@ -124,7 +144,63 @@ function FieldDescription({ description }: { description?: unknown; path: string
   return <p>{typeof description === 'string' ? description : ''}</p>
 }
 
-export const uiMock = { Button, FieldDescription, SelectInput, TextInput, useField, useFormFields }
+function FieldLabel({ label }: { label?: unknown; path?: string }) {
+  return <span className="field-label">{typeof label === 'string' ? label : ''}</span>
+}
+
+function FieldError({ showError }: { path?: string; showError?: boolean }) {
+  return showError ? <span className="field-error" /> : null
+}
+
+/** The props the last-rendered mocked `DatePicker` got, by `aria-label` order (tests read them). */
+export const datePickers: Record<string, unknown>[] = []
+
+/**
+ * `@payloadcms/ui`'s `DatePicker` as a plain input: typing an ISO date-time calls `onChange` with
+ * that `Date` (what the real picker hands over is the caller's to build); clearing calls it with
+ * null. The props are kept in `datePickers` for the test to read.
+ */
+function DatePicker(props: { onChange?: (date: Date | null) => void; placeholder?: string; readOnly?: boolean; value?: Date | string }) {
+  datePickers.push(props)
+  const { onChange, placeholder, readOnly, value } = props
+  return (
+    <input
+      aria-label="date picker"
+      data-appearance={(props as { pickerAppearance?: string }).pickerAppearance}
+      onChange={(e) => onChange?.(e.target.value ? new Date(e.target.value) : null)}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      value={value instanceof Date ? value.toISOString() : (value ?? '')}
+    />
+  )
+}
+
+export const config = { routes: { api: '/api' }, serverURL: 'https://cms.example.com' }
+
+function configHook() {
+  return { config }
+}
+
+/** The row `useRowLabel` returns; tests set it before rendering a label. */
+export const rowLabel: { data: unknown; path: string; rowNumber?: number } = { data: {}, path: '', rowNumber: 0 }
+
+function rowLabelHook() {
+  return rowLabel
+}
+
+export const uiMock = {
+  Button,
+  DatePicker,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  SelectInput,
+  TextInput,
+  useConfig: configHook,
+  useField,
+  useFormFields,
+  useRowLabel: rowLabelHook,
+}
 
 export const sharedMock = {
   mergeFieldStyles: (field: { admin?: { width?: string } }) => (field.admin?.width ? { '--field-width': field.admin.width } : {}),

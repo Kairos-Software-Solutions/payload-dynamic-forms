@@ -389,7 +389,7 @@ describe('plugin config', () => {
     expect(names.at(-1)).toBe('visibilityRules')
   })
 
-  test('field names are unchanged from 0.3.0 apart from prefillFromKey', () => {
+  test('field names are unchanged from 0.3.0 apart from the listed new fields', () => {
     const before = fieldPaths030 as Record<string, string[]>
     const now: Record<string, string[]> = {}
     for (const block of allBlocks()) {
@@ -400,8 +400,133 @@ describe('plugin config', () => {
       const missing = paths.filter((p) => !now[slug].includes(p))
       const added = now[slug].filter((p) => !paths.includes(p))
       expect(missing, `${slug} lost`).toEqual([])
-      expect(added, `${slug} added`).toEqual(INPUT_TYPES.includes(slug) ? ['prefillFromKey'] : [])
+      const allowed = slug === 'date' ? ['displayStyle', 'mode', 'prefillFromKey', 'valueFormat'] : INPUT_TYPES.includes(slug) ? ['prefillFromKey'] : []
+      expect(added.sort(), `${slug} added`).toEqual(allowed)
     }
+  })
+
+  test('default fields match the question type', () => {
+    const sources = { products: { collection: 'posts', labelField: 'title', valueField: 'title' } }
+    type DefaultField = {
+      admin?: { components?: { Field?: { clientProps?: Record<string, unknown>; path: string } | string } }
+      localized?: boolean
+      type: string
+    }
+    for (const options of [{ fields: { fileUpload: true } }, { fields: { fileUpload: true }, optionSources: sources }]) {
+      const blocks = sectionBlocks(formsPlugin(options as never)(baseConfig())).filter((b) => INPUT_TYPES.includes(b.slug))
+      expect(blocks.length).toBe(INPUT_TYPES.length)
+      const component = (field: DefaultField) => field.admin?.components?.Field
+      for (const block of blocks) {
+        const field = named<DefaultField>(block.fields, 'defaultValue')
+        const slug = block.slug
+        if (slug === 'text' || slug === 'textarea') {
+          expect(field.type, slug).toBe('text')
+          expect(field.localized, slug).toBe(true)
+          expect(component(field), slug).toBeUndefined()
+          continue
+        }
+        expect(field.localized, slug).toBeFalsy()
+        if (slug === 'email') {
+          expect(field.type).toBe('email')
+          expect(component(field)).toBeUndefined()
+        } else if (slug === 'number') {
+          expect(field.type).toBe('text')
+          expect(component(field)).toBe('payload-dynamic-forms/client#NumberDefaultField')
+        } else if (slug === 'date') {
+          expect(field.type).toBe('text')
+          expect(component(field)).toBe('payload-dynamic-forms/client#DateValueField')
+        } else if (slug === 'select' || slug === 'radio' || slug === 'checkboxGroup') {
+          expect(field.type, slug).toBe('text')
+          const config = component(field) as { clientProps?: Record<string, unknown>; path: string }
+          expect(config.path, slug).toBe('payload-dynamic-forms/client#DefaultChoiceField')
+          expect(Boolean(config.clientProps?.multiple), slug).toBe(slug === 'checkboxGroup')
+          if (options.optionSources) {
+            expect(config.clientProps?.sources, slug).toEqual({ products: { collection: 'posts', labelField: 'title', valueField: 'title' } })
+          } else {
+            expect(config.clientProps?.sources, slug).toBeUndefined()
+          }
+        } else if (slug === 'checkbox') {
+          expect(field).toMatchObject({ type: 'checkbox', defaultValue: false })
+          expect(component(field)).toBeUndefined()
+        } else if (slug === 'fileUpload') {
+          expect(field).toMatchObject({ type: 'text', admin: { hidden: true } })
+          expect(component(field)).toBeUndefined()
+        }
+      }
+      // Option values, numbers and dates are never localized; option labels stay localized.
+      for (const block of blocks) {
+        walk(block.fields, (field, p) => {
+          if (['displayStyle', 'max', 'maxDate', 'min', 'minDate', 'mode', 'options.value', 'valueFormat'].includes(p)) {
+            expect((field as { localized?: boolean }).localized, `${block.slug}.${p}`).toBeFalsy()
+          }
+          if (p === 'options.label') {
+            expect((field as { localized?: boolean }).localized, `${block.slug}.${p}`).toBe(true)
+          }
+        })
+      }
+    }
+  })
+
+  test('date questions have a mode, a stored format and a display style', () => {
+    const date = inputBlocks().find((b) => b.slug === 'date')!
+    type Select = {
+      admin?: { condition?: (data: unknown, sibling: unknown) => boolean }
+      defaultValue: unknown
+      label: string
+      options: { label: string; value: string }[]
+      type: string
+    }
+    const mode = named<Select>(date.fields, 'mode')
+    const valueFormat = named<Select>(date.fields, 'valueFormat')
+    const displayStyle = named<Select>(date.fields, 'displayStyle')
+    expect(mode.type).toBe('select')
+    expect(mode.label).toBe('Asks for')
+    expect(mode.options).toEqual([
+      { label: 'Date', value: 'dayOnly' },
+      { label: 'Date and time', value: 'dayAndTime' },
+      { label: 'Time', value: 'timeOnly' },
+    ])
+    expect(valueFormat.type).toBe('select')
+    expect(valueFormat.label).toBe('Stored as')
+    expect(valueFormat.options.map((o) => o.value)).toEqual(['local', 'utc'])
+    expect(displayStyle.type).toBe('select')
+    expect(displayStyle.label).toBe('In emails and messages')
+    expect(displayStyle.options.map((o) => o.value)).toEqual(['asStored', 'short', 'medium', 'long'])
+    for (const [field, value] of [
+      [mode, 'dayOnly'],
+      [valueFormat, 'local'],
+      [displayStyle, 'asStored'],
+    ] as const) {
+      expect(typeof field.defaultValue, field.label).toBe('function')
+      expect((field.defaultValue as (args: unknown) => unknown)({}), field.label).toBe(value)
+    }
+    const condition = valueFormat.admin!.condition!
+    expect(condition({}, { mode: 'dayAndTime' })).toBe(true)
+    for (const other of ['dayOnly', 'timeOnly', null, undefined]) {
+      expect(condition({}, { mode: other }), String(other)).toBe(false)
+    }
+    expect(mode.admin?.condition).toBeUndefined()
+    expect(displayStyle.admin?.condition).toBeUndefined()
+    const names = dataNames(date.fields)
+    for (const setting of ['mode', 'valueFormat', 'displayStyle']) {
+      for (const later of ['minDate', 'maxDate', 'defaultValue']) {
+        expect(names.indexOf(setting), `${setting} before ${later}`).toBeLessThan(names.indexOf(later))
+      }
+    }
+    expect(names.slice(names.indexOf('mode'), names.indexOf('mode') + 5)).toEqual(['mode', 'valueFormat', 'displayStyle', 'minDate', 'maxDate'])
+    // Limits keep their names and labels and check the mode's format.
+    type Limit = { label: string; validate: (value: unknown, args: unknown) => string | true }
+    const minDate = named<Limit>(date.fields, 'minDate')
+    expect(minDate.label).toBe('Earliest')
+    expect(named<Limit>(date.fields, 'maxDate').label).toBe('Latest')
+    expect(minDate.validate('', { siblingData: {} })).toBe(true)
+    expect(minDate.validate('2026-12-01', { siblingData: { mode: null } })).toBe(true)
+    expect(minDate.validate('today', { siblingData: { mode: 'dayOnly' } })).toBe(true)
+    expect(minDate.validate('12/01/2026', { siblingData: {} })).toMatch(/YYYY-MM-DD/)
+    expect(minDate.validate('09:00', { siblingData: { mode: 'timeOnly' } })).toBe(true)
+    expect(minDate.validate('today', { siblingData: { mode: 'timeOnly' } })).toMatch(/HH:MM/)
+    expect(minDate.validate('2026-12-01T09:00', { siblingData: { mode: 'dayAndTime' } })).toBe(true)
+    expect(minDate.validate('2026-12-01', { siblingData: { mode: 'dayAndTime' } })).toMatch(/YYYY-MM-DDTHH:MM/)
   })
 
   test('rule arrays are labelled Rules and still named rows', () => {
@@ -551,7 +676,16 @@ describe('plugin config', () => {
     const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/exports/client.ts'), 'utf8')
     expect(source.split('\n')[0]).toMatch(/^['"]use client['"]$/)
     const exported = new Set([...source.matchAll(/export \{ (\w+) \}/g)].map((m) => m[1]))
-    expect([...exported].sort()).toEqual(['KeyField', 'NoAnswerHint', 'PrefillParamField', 'RuleFieldKeyField', 'SectionTargetField'])
+    expect([...exported].sort()).toEqual([
+      'DateValueField',
+      'DefaultChoiceField',
+      'KeyField',
+      'NoAnswerHint',
+      'NumberDefaultField',
+      'PrefillParamField',
+      'RuleFieldKeyField',
+      'SectionTargetField',
+    ])
     const config = formsPlugin({ fields: { fileUpload: true } })(baseConfig())
     const paths: string[] = []
     for (const c of config.collections!) {
@@ -570,7 +704,8 @@ describe('plugin config', () => {
         expect(exported.has(value.split('#')[1]), p).toBe(true)
       })
     }
-    // Section key, 10 question keys, 10 prefill parameters, 12 rule keys, the next-step target, the radio hint.
-    expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1)
+    // Section key, 10 question keys, 10 prefill parameters, 12 rule keys, the next-step target, the radio hint,
+    // and the typed defaults: number, date, Earliest, Latest, select, radio and checkbox group.
+    expect(paths.length).toBe(1 + 10 + 10 + 12 + 1 + 1 + 7)
   })
 })

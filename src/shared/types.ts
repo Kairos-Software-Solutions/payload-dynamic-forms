@@ -73,6 +73,8 @@ export type InputBlock = {
   /** Any input type: a built-in one or one an app registered. */
   blockType: string
   defaultValue?: unknown
+  /** Date questions: how messages show the answer. Empty: as stored. */
+  displayStyle?: 'asStored' | 'long' | 'medium' | 'short' | null
   fieldKey?: null | string
   id?: null | string
   max?: null | number
@@ -87,6 +89,8 @@ export type InputBlock = {
   min?: null | number
   minDate?: null | string
   minLength?: null | number
+  /** Date questions: Date (`dayOnly`, also when empty), Date and time, Time. */
+  mode?: 'dayAndTime' | 'dayOnly' | 'timeOnly' | null
   options?: ChoiceOption[] | null
   optionsFrom?: null | string
   /** Locked (true): `prefillParam` follows the key on save. False or null (saved before 0.4.0): unlocked. */
@@ -94,6 +98,8 @@ export type InputBlock = {
   /** Name of a link (search) parameter that prefills this input. */
   prefillParam?: null | string
   required?: boolean | null
+  /** Date and time questions: kept as sent (`local`, also when empty) or as a UTC instant. */
+  valueFormat?: 'local' | 'utc' | null
   visibilityRules?: null | RuleGroup
   width?: 'full' | 'half' | null
   words?: FieldWords | null

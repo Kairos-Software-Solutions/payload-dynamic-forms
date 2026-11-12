@@ -3,19 +3,83 @@ import type { Block, Field } from 'payload'
 import type { FieldTypeChecks } from '../shared/types.js'
 import type { FieldTypeDefinition, FormsPluginOptions, OptionSource } from '../types.js'
 
+import { dateFormatWords, dateMode, isDateLimitValue } from '../shared/dates.js'
 import { LEVEL_CHECKBOX_STYLE } from './adminStyle.js'
 import { ruleGroupField } from './ruleFields.js'
 
-const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
+const CLIENT = 'payload-dynamic-forms/client'
 
+/**
+ * Earliest or Latest of a date question: wall-time text in the question's mode, or `today`
+ * (not on Time questions), picked with `DateValueField`. Names unchanged from 0.3.0.
+ */
 function dateLimit(name: string, label: string): Field {
   return {
     name,
     type: 'text',
-    admin: { description: 'YYYY-MM-DD', width: '50%' },
+    admin: { components: { Field: { clientProps: { limit: true }, path: `${CLIENT}#DateValueField` } }, width: '50%' },
     label,
-    validate: (value: unknown) =>
-      !value || (typeof value === 'string' && DATE_TEXT.test(value)) ? true : 'Use YYYY-MM-DD.',
+    validate: (value: unknown, { siblingData }: { siblingData?: unknown }) => {
+      if (value === null || value === undefined || value === '') {
+        return true
+      }
+      const mode = dateMode(siblingData as never)
+      if (isDateLimitValue(value, mode)) {
+        return true
+      }
+      return mode === 'timeOnly' ? `Use ${dateFormatWords(mode)}.` : `Use ${dateFormatWords(mode)} or today.`
+    },
+  } as Field
+}
+
+/**
+ * The date question's settings, in one row before the limits. Function defaults, so the
+ * database gets no column default; a stored NULL (a 0.4.0 row) reads as the default everywhere.
+ */
+function dateSettingsRow(): Field {
+  return {
+    type: 'row',
+    fields: [
+      {
+        name: 'mode',
+        type: 'select',
+        admin: { width: '33%' },
+        dbName: 'dm',
+        defaultValue: () => 'dayOnly',
+        label: 'Asks for',
+        options: [
+          { label: 'Date', value: 'dayOnly' },
+          { label: 'Date and time', value: 'dayAndTime' },
+          { label: 'Time', value: 'timeOnly' },
+        ],
+      },
+      {
+        name: 'valueFormat',
+        type: 'select',
+        admin: { condition: (_data, sibling) => sibling?.mode === 'dayAndTime', width: '33%' },
+        dbName: 'dvf',
+        defaultValue: () => 'local',
+        label: 'Stored as',
+        options: [
+          { label: "As the visitor's browser sends it", value: 'local' },
+          { label: 'UTC instant (ISO 8601)', value: 'utc' },
+        ],
+      },
+      {
+        name: 'displayStyle',
+        type: 'select',
+        admin: { width: '34%' },
+        dbName: 'dds',
+        defaultValue: () => 'asStored',
+        label: 'In emails and messages',
+        options: [
+          { label: 'As stored', value: 'asStored' },
+          { label: 'Short', value: 'short' },
+          { label: 'Medium', value: 'medium' },
+          { label: 'Long', value: 'long' },
+        ],
+      },
+    ],
   }
 }
 
@@ -49,6 +113,41 @@ export function fieldWordsField(): Field {
 }
 
 const TEXT_DEFAULT: Field = { name: 'defaultValue', type: 'text', localized: true }
+
+/** Typed defaults (design 1): never localized; every one a text column (design 2). */
+const EMAIL_DEFAULT: Field = { name: 'defaultValue', type: 'email' }
+const NUMBER_DEFAULT: Field = {
+  name: 'defaultValue',
+  type: 'text',
+  admin: { components: { Field: `${CLIENT}#NumberDefaultField` } },
+}
+const DATE_DEFAULT: Field = {
+  name: 'defaultValue',
+  type: 'text',
+  admin: { components: { Field: `${CLIENT}#DateValueField` } },
+}
+
+/** What `DefaultChoiceField` needs of the option sources: plain, serialisable data only. */
+function clientSources(sources: Record<string, OptionSource>) {
+  return Object.fromEntries(
+    Object.entries(sources).map(([key, s]) => [key, { collection: String(s.collection), labelField: s.labelField, valueField: s.valueField }]),
+  )
+}
+
+function choiceDefault(sources: Record<string, OptionSource>, multiple = false): Field {
+  const clientProps: Record<string, unknown> = {}
+  if (multiple) {
+    clientProps.multiple = true
+  }
+  if (Object.keys(sources).length) {
+    clientProps.sources = clientSources(sources)
+  }
+  return {
+    name: 'defaultValue',
+    type: 'text',
+    admin: { components: { Field: { clientProps, path: `${CLIENT}#DefaultChoiceField` } } },
+  }
+}
 
 /** What a question is: the key row (key, width, required) and its words. */
 export function headFields(): Field[] {
@@ -233,13 +332,15 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
       { name: 'defaultValue', type: 'checkbox', admin: { style: LEVEL_CHECKBOX_STYLE }, defaultValue: false },
       () => false,
     ),
-    checkboxGroup: input('checkboxGroup', 'Checkbox group', choiceFields(ctx.sources), {
-      name: 'defaultValue',
-      type: 'text',
-      admin: { description: 'Values, separated by commas.' },
-    }),
-    date: input('date', 'Date', [{ type: 'row', fields: [dateLimit('minDate', 'Earliest'), dateLimit('maxDate', 'Latest')] }]),
-    email: input('email', 'Email', []),
+    // Several option values, joined by commas (the 0.4.0 format).
+    checkboxGroup: input('checkboxGroup', 'Checkbox group', choiceFields(ctx.sources), choiceDefault(ctx.sources, true)),
+    date: input(
+      'date',
+      'Date',
+      [dateSettingsRow(), { type: 'row', fields: [dateLimit('minDate', 'Earliest'), dateLimit('maxDate', 'Latest')] }],
+      DATE_DEFAULT,
+    ),
+    email: input('email', 'Email', [], EMAIL_DEFAULT),
     fileUpload: input(
       'fileUpload',
       'File upload',
@@ -289,9 +390,9 @@ export function builtInBlocks(ctx: BlockContext): Record<string, Block> {
           { name: 'max', type: 'number', admin: { width: '50%' } },
         ],
       },
-    ]),
-    radio: input('radio', 'Radio', [...choiceFields(ctx.sources, { minOptions: 2 }), noAnswerHintField()]),
-    select: input('select', 'Select', choiceFields(ctx.sources, { minOptions: 2 })),
+    ], NUMBER_DEFAULT),
+    radio: input('radio', 'Radio', [...choiceFields(ctx.sources, { minOptions: 2 }), noAnswerHintField()], choiceDefault(ctx.sources)),
+    select: input('select', 'Select', choiceFields(ctx.sources, { minOptions: 2 }), choiceDefault(ctx.sources)),
     text: input('text', 'Text', [lengthLimits()]),
     textarea: input('textarea', 'Long text', [lengthLimits()]),
   }

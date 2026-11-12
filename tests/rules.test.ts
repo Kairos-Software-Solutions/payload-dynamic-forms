@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  defaultAnswer,
   evaluateRow,
   evaluateRules,
   type FormLike,
   getVisibility,
   initialAnswers,
+  type InputBlock,
   isFieldVisible,
   OPERATORS,
   type OperatorValue,
@@ -99,5 +101,74 @@ describe('rule engine', () => {
     expect(initialAnswers(form).need).toBe('tripods')
     // Inputs without a link parameter keep their defaults.
     expect(initialAnswers(form, '?name=Ana').name).toBe('')
+  })
+
+  test('today defaults resolve when the form starts', () => {
+    const form: FormLike = {
+      sections: [
+        {
+          fields: [
+            input('date', 'day', { defaultValue: 'today', mode: 'dayOnly' }),
+            input('date', 'when', { defaultValue: 'today', mode: 'dayAndTime' }),
+            input('date', 'time', { defaultValue: 'today', mode: 'timeOnly' }),
+            input('date', 'old', { defaultValue: 'today', mode: null }),
+            input('date', 'fixed', { defaultValue: '2026-12-01' }),
+          ],
+          key: 'one',
+        },
+      ],
+    }
+    const now = new Date(2026, 10, 12, 14, 30, 20)
+    expect(initialAnswers(form, undefined, { now })).toEqual({
+      day: '2026-11-12',
+      fixed: '2026-12-01',
+      old: '2026-11-12',
+      time: '14:30',
+      when: '2026-11-12T14:30',
+    })
+    expect(defaultAnswer(form.sections![0].fields![1] as InputBlock, { now })).toBe('2026-11-12T14:30')
+  })
+
+  test('choice defaults outside the options start empty', () => {
+    const options = [
+      { label: 'A', value: 'a' },
+      { label: 'B', value: 'b' },
+    ]
+    const form: FormLike = {
+      sections: [
+        {
+          fields: [
+            input('radio', 'radio-key', { defaultValue: 'gone', options, prefillParam: 'radio-key' }),
+            input('select', 'pick', { defaultValue: 'b', options }),
+            input('checkboxGroup', 'many', { defaultValue: 'a,gone', options }),
+          ],
+          key: 'one',
+        },
+      ],
+    }
+    expect(initialAnswers(form)).toEqual({ many: ['a'], pick: 'b', 'radio-key': '' })
+    expect(initialAnswers(form, '?radio-key=a')['radio-key']).toBe('a')
+    expect(initialAnswers(form, '?radio-key=gone')['radio-key']).toBe('')
+  })
+
+  test('number defaults start as numbers', () => {
+    const form: FormLike = {
+      sections: [
+        {
+          fields: [
+            input('number', 'count', { defaultValue: '12' }),
+            input('number', 'ratio', { defaultValue: '1.5' }),
+            input('number', 'none', { defaultValue: null }),
+            input('number', 'bad', { defaultValue: 'many' }),
+          ],
+          key: 'one',
+        },
+      ],
+    }
+    const answers = initialAnswers(form)
+    expect(answers.count).toBe(12)
+    expect(answers.ratio).toBe(1.5)
+    expect(answers.none).toBe('')
+    expect(answers.bad).toBe('')
   })
 })

@@ -10,6 +10,8 @@ import type {
   RuleRow,
 } from './types.js'
 
+import { dateMode, TODAY, todayValue } from './dates.js'
+
 /** Lower-case kebab-case: ` Project Type ` → `project-type`. */
 export function normalizeKey(value: unknown): string {
   if (typeof value !== 'string') {
@@ -301,20 +303,40 @@ function readParam(params: SearchParamsLike | undefined, name: string): string[]
   return Array.isArray(v) ? v : [v]
 }
 
-/** The starting answer of a field from its default value. */
-export function defaultAnswer(field: InputBlock): AnswerValue {
+/** Options for starting answers: the moment a `today` default resolves at (local zone). */
+export type StartContext = { now?: Date }
+
+/**
+ * The starting answer of a field from its default value. A `today` default resolves at `now`
+ * (default: the current moment) in the runtime's local zone, so call it in the browser; a select
+ * or radio default that isn't one of the field's options starts empty, a checkbox group keeps only
+ * listed values, and a number default starts as a number.
+ */
+export function defaultAnswer(field: InputBlock, ctx: StartContext = {}): AnswerValue {
   const d = field.defaultValue
   if (field.blockType === 'checkbox') {
     return d === true || ['1', 'on', 'true', 'yes'].includes(String(d ?? '').toLowerCase())
   }
-  if (field.blockType === 'checkboxGroup') {
-    return toStringList(d)
-  }
   if (field.blockType === 'fileUpload') {
     return ''
   }
+  if (isChoiceBlock(field)) {
+    const listed = new Set(getOptions(field).map((o) => String(o.value)))
+    const values = toStringList(d).filter((v) => listed.has(v))
+    if (field.blockType === 'checkboxGroup') {
+      return values
+    }
+    return values[0] ?? ''
+  }
   if (d === null || d === undefined) {
     return ''
+  }
+  if (field.blockType === 'number') {
+    const n = typeof d === 'number' ? d : typeof d === 'string' && d.trim() ? Number(d.trim()) : Number.NaN
+    return Number.isFinite(n) ? n : ''
+  }
+  if (field.blockType === 'date' && typeof d === 'string' && d.trim() === TODAY) {
+    return todayValue(dateMode(field), { now: ctx.now })
   }
   if (typeof d === 'number' || typeof d === 'boolean') {
     return d
@@ -323,14 +345,14 @@ export function defaultAnswer(field: InputBlock): AnswerValue {
 }
 
 /**
- * Starting answers for a renderer: each input's default, or the value of its link parameter
- * when the app passes the page's search parameters. Choice fields take the parameter only when
- * it is one of their options.
+ * Starting answers for a renderer: each input's default (`defaultAnswer`, with `ctx.now` for
+ * "Today" defaults), or the value of its link parameter when the app passes the page's search
+ * parameters. Choice fields take the parameter only when it is one of their options.
  */
-export function initialAnswers(form: FormLike, searchParams?: SearchParamsLike): Answers {
+export function initialAnswers(form: FormLike, searchParams?: SearchParamsLike, ctx: StartContext = {}): Answers {
   const answers: Answers = {}
   for (const { field, key } of getInputFields(form)) {
-    answers[key] = defaultAnswer(field)
+    answers[key] = defaultAnswer(field, ctx)
     const param = field.prefillParam?.trim()
     if (!param || field.blockType === 'fileUpload') {
       continue
