@@ -20,7 +20,7 @@ The README SHALL cover: what the plugin does and doesn't do (no visitor UI), ins
 
 #### Scenario: Changelog and 0.3.0 migration note
 - **WHEN** the test reads the README
-- **THEN** the first entry under `## Changelog` starts with `0.4.0` and a later one with `0.3.0`; the Migrations section has a 0.4.0 paragraph naming `prefill_from_key`, `presentation_mode` and `payload generate:importmap`, saying 0.3.0 questions keep their prefill parameter, warning that on SQLite and D1 the generated migration rebuilds the forms table and loses its child rows so those sites hand-write `ADD COLUMN prefill_from_key` (keeping the generated snapshot JSON), saying updates that resend `sections` without row ids reset the lock and overwrite a custom prefill parameter, and giving the rollback, and its 0.3.0 paragraph that names the `_locales` table and says to copy the old subject and body values, the Compatibility section says to use 0.3.0 or later, and the Rendering section shows `draft: true`
+- **THEN** the first entry under `## Changelog` starts with `0.5.0`, later ones with `0.4.0` and then `0.3.0`; the Migrations section keeps its 0.4.0 paragraph (naming `prefill_from_key`, `presentation_mode` and `payload generate:importmap`, the hand-written `ADD COLUMN prefill_from_key` for SQLite and D1 with the snapshot JSON, updates without row ids, the rollback) and its 0.3.0 paragraph that names the `_locales` table and says to copy the old subject and body values; the Compatibility section says to use 0.3.0 or later, and the Rendering section shows `draft: true`
 - **CHECK** tests/readme.test.ts › "readme has the 0.3.0 changelog and migration note"; tests/readme.test.ts › "readme has the 0.4.0 changelog and migration note"
 
 #### Scenario: README uses the package name
@@ -29,11 +29,11 @@ The README SHALL cover: what the plugin does and doesn't do (no visitor UI), ins
 - **CHECK** tests/readme.test.ts › "readme uses the package name from package.json"
 
 ### Requirement: Licence and package metadata
-The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.4.0, `publishConfig` holding only `access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, peer dependencies `payload ^3.92.1`, `@payloadcms/ui ^3.92.1` and `react ^19.2.1` and no others, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
+The repo SHALL have a LICENSE file with the reviewer's licence (MIT), and `package.json` SHALL carry the same licence, the generic unscoped name `payload-dynamic-forms`, version 0.5.0, `publishConfig` holding only `access: public`, the `payload-dynamic-forms` repository URL, the `payload-plugin` keyword, peer dependencies `payload ^3.92.1`, `@payloadcms/ui ^3.92.1` and `react ^19.2.1` and no others, and Payload 3.92.1's Node engines (`^22.23.4 || >=24.22.1`).
 
 #### Scenario: Metadata matches
 - **WHEN** the test reads `package.json` and `LICENSE`
-- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peers are exactly `payload ^3.92.1`, `@payloadcms/ui ^3.92.1` and `react ^19.2.1`, `publishConfig` equals `{ access: 'public' }` and the version is 0.4.0
+- **THEN** the licence names agree, the name is `payload-dynamic-forms`, the repository URL is the `payload-dynamic-forms` repo, the peers are exactly `payload ^3.92.1`, `@payloadcms/ui ^3.92.1` and `react ^19.2.1`, `publishConfig` equals `{ access: 'public' }` and the version is 0.5.0
 - **CHECK** tests/package.test.ts › "package metadata and licence agree"
 
 ### Requirement: Package contents
@@ -103,3 +103,16 @@ The dev app, the tests and the typecheck SHALL read `src/` and SHALL NOT need a 
 - **WHEN** `dist/` is removed
 - **THEN** `yarn typecheck` passes and the plugin config and dev app boot tests pass
 - **CHECK** `rm -rf dist && yarn typecheck && yarn vitest run tests/plugin-config.test.ts tests/int/boot.int.test.ts` exits 0
+
+### Requirement: README notes for 0.5.0
+The README SHALL carry a 0.5.0 migration note (new columns, the default-language copy with `carryOverDefault` and its report file, the backfill, hand-written SQLite/D1 migration, the Postgres edit, import map, rollback through `down()` with `rollbackDefault`), the `timezone` and `metadata.timeZone` options, date modes and storage, jumps vs show rules, and Send another with the Turnstile note.
+
+#### Scenario: 0.5.0 migration note
+- **WHEN** the test reads the Migrations section's `**0.5.0.**` paragraph
+- **THEN** it names `default_value`, `_locales`, `mode`, `value_format`, `display_style`, `send_another`, `wording_send_another`, `metadata_time_zone`, `carryOverDefault`, `forms-0.5.0-carry-over.txt`, `rollbackDefault`, `ADD COLUMN`, `snapshot JSON` and `payload generate:importmap`, says SQLite and D1 sites hand-write the migration because a generated one can rebuild tables and delete child rows, says Postgres runs the copy before the generated `DROP COLUMN`, says defaults that don't fit are reported, says existing rows are backfilled (`dayOnly`, `send_another`, the Send another words per locale), and gives the Rollback: run `down()` before re-pinning 0.4.0, because a 0.5.0 save clears the old `_locales` default
+- **CHECK** tests/readme.test.ts › "readme has the 0.5.0 changelog and migration note"
+
+#### Scenario: Date modes, jumps and send another are explained
+- **WHEN** the test reads the README
+- **THEN** it has sections "Date and time questions" (naming Date, Date and time, Time, `dayOnly`, `dayAndTime`, `timeOnly`, `TIME_ZONE_FIELD`, `_tz`, `timezone` and that date-only answers are never converted to UTC), "Jumps and show rules" (saying a jump skips every section in between and to use a show rule for an optional section) and "Send another" (saying Turnstile tokens are single use and the renderer needs a fresh one), and the Options section documents `timezone` with its `UTC` default and `metadata.timeZone` (default on, the zone still used when off)
+- **CHECK** tests/readme.test.ts › "readme explains date modes, jumps and send another"
